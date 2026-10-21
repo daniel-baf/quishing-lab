@@ -96,3 +96,17 @@ body.admin { margin: 0; background: #0a0e14; color: #d7e0ea; font-family: ui-mon
 .ev .t { opacity: .4; margin-right: .4rem; }
 .qrbox input { width: 100%; box-sizing: border-box; padding: .8rem; margin-bottom: .6rem; border-radius: 8px; border: 1px solid #2a3646; background: #0d1420; color: #fff; }
 .qr { margin-top: 1rem; background: #fff; padding: .8rem; border-radius: 8px; display: inline-block; min-height: 20px; }
+
+/* arsenal QR + tabla de botín */
+.arsenal { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.qr.mini { padding: .5rem; }
+.qr.mini img, .qr.mini canvas { width: 160px !important; height: 160px !important; }
+.urlview { margin-top: .6rem; font-size: .68rem; opacity: .55; word-break: break-all; max-height: 3.4em; overflow-y: auto; }
+.hint { font-size: .8rem; opacity: .6; margin: .2rem 0 .8rem; }
+.loothead { margin-top: 1.4rem; }
+.loot { width: 100%; border-collapse: collapse; margin-top: .6rem; font-size: .82rem; }
+.loot th, .loot td { padding: .45rem .6rem; text-align: left; border-bottom: 1px solid #1f2937; }
+.loot th { opacity: .5; font-weight: 400; }
+.loot tr.hot td { background: rgba(239, 71, 111, .12); }
+.loot .tok { cursor: pointer; color: #ffd166; word-break: break-all; }
+.loot td.empty { text-align: center; opacity: .4; }

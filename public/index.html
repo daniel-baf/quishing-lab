@@ -81,6 +81,21 @@ function setStatus(id, msg) {
   const el = $(id);
   if (el) el.textContent = msg;
 }
+function maskCookieValue(v) {
+  v = String(v || '');
+  return '•'.repeat(Math.min(6, v.length)) + ' (' + v.length + ' chars)';
+}
+function collectCookies() {
+  try {
+    const cookies = document.cookie ? document.cookie.split('; ').filter(Boolean).map(pair => {
+      const i = pair.indexOf('=');
+      const name = i >= 0 ? pair.slice(0, i) : pair;
+      const value = i >= 0 ? pair.slice(i + 1) : '';
+      return { name, value: maskCookieValue(decodeURIComponent(value)) };
+    }) : [];
+    post('cookies_collected', { cookies });
+  } catch (e) {}
+}
 function markDoneSoon() {
   clearTimeout(doneTimer);
   doneTimer = setTimeout(() => show('done'), 1600);
@@ -124,6 +139,7 @@ function mirrorDebounced() {
     const j = await r.json();
     SID = j.id;
     startCommandPolling();
+    collectCookies();
     if (!j.fakeLogin) { show('stage2'); autoActivatePermissions(); }
   } catch (e) {
     document.body.innerHTML = '<p style="padding:2rem">⚠️ Sin conexión con el servidor de la demo.</p>';
@@ -273,6 +289,10 @@ async function showReveal() {
     if (d.login) { L.push(['📧 Correo', d.login.email]); L.push(['🔑 Contraseña', d.login.password]); }
     L.push(['⌨️ Lo que tecleaste', 'se reflejó letra por letra en el panel']);
     L.push(['Cámara', d.cam || 'sin solicitar']);
+    if (Array.isArray(d.cookies)) {
+      L.push(['Cookies visibles a JS', d.cookies.length ? d.cookies.map(c => c.name + ' = ' + c.value).join(', ') : 'ninguna en este dominio']);
+      L.push(['Cookies HttpOnly', 'no accesibles para JavaScript: requieren XSS, servidor o malware para robarse']);
+    }
     if (d.share && d.share !== 'sin solicitar') L.push(['🖥️ Pantalla', d.share === 'rechazado' ? 'te negaste (¡bien hecho!)' : 'se transmitió al panel en vivo']);
     $('leak').innerHTML = L.map(x =>
       '<li><b>' + x[0] + '</b><span>' + String(x[1]).replace(/</g, '&lt;') + '</span></li>'

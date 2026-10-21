@@ -27,9 +27,53 @@ Comandos habituales:
 
 ```bash
 make logs       # logs de la aplicación
+make logs-victim  # logs de Juice Shop y WebGoat
 make down       # detiene aplicación y túnel
 make tunnel     # inicia app + Quick Tunnel y deja sus logs en pantalla
 ```
+
+## Apps de práctica (intencionadamente vulnerables)
+
+`make up` también levanta dos aplicaciones de entrenamiento oficialmente
+vulnerables, pensadas para la parte de la demo que va más allá del QR:
+XSS, robo de sesión y CSRF.
+
+- **OWASP Juice Shop** — tienda online vulnerable en `http://localhost:4000`
+  (en la LAN: `http://IP-del-portátil:4000`). Incluye el reto QR "Forged
+  Coupon", DOM-XSS en el buscador y la sesión (JWT) guardada en
+  `sessionStorage`, legible desde un XSS. Reset = recrear el contenedor:
+  `docker compose up -d --force-recreate juice-shop`.
+- **OWASP WebGoat** — curso guiado en `http://localhost:8080/WebGoat`, con su
+  companion WebWolf (un "request bin" para recibir exfiltraciones) en
+  `http://localhost:9090/WebWolf`. Solo escucha en localhost.
+
+> ⚠️ **Nunca** expongas Juice Shop ni WebGoat por el túnel de Cloudflare: son
+> vulnerables a propósito y cualquiera con la URL puede entrar. Deben quedarse
+> en la LAN/VM. Si no los usas en una sesión:
+> `docker compose stop juice-shop webgoat`.
+
+### Demo extendida: robo de sesión desde un QR
+
+El panel incluye un **arsenal QR** (debajo del feed) que demuestra que un QR
+también puede robar una sesión sin pedir credenciales:
+
+1. **QR 1 (cebo)** apunta a Juice Shop (`http://IP-LAN:4000/`). La víctima se
+   registra e inicia sesión. Todo legítimo.
+2. **QR 2 (robo)** abre el buscador de Juice Shop con un payload XSS que envía
+   el JWT de sesión a `GET /api/loot` de este servidor. El panel cuenta las
+   ejecuciones y las sesiones robadas, y lista cada JWT con el email de la
+   víctima decodificado (click en el token = copiarlo).
+3. **Remate:** en una pestaña nueva de Juice Shop,
+   `sessionStorage.setItem('token','…')` con el JWT copiado → estás dentro de
+   la cuenta de la víctima, sin saber su contraseña.
+
+El **QR 3 (libre)** es para URLs propias, p. ej. la inyección SQL de
+`/rest/products/search` de Juice Shop, que también cabe en un QR.
+
+Reglas de oro: usar siempre la **IP LAN, nunca `localhost`** (`sessionStorage`
+es por origen: si se mezclan, el token "no existe" y llega `loot=none`); Juice
+Shop nunca por el túnel; y `Reiniciar` limpia también el botín. La IP LAN se
+autodetecta al hacer `make up`; se fuerza con `LAN_IP=192.168.x.x make up`.
 
 ## Exponerlo con Cloudflare Tunnel
 
@@ -85,6 +129,8 @@ También usa el `.env` con el mismo `ADMIN_TOKEN` estable.
 - Los permisos de cámara/geolocalización **los controla el navegador** — no hay forma (ni intención)
   de saltarlos; el momento del diálogo de permiso es didáctico.
 
+- **Cookies:** la landing lee solo `document.cookie` del dominio de la demo, enmascara los valores y los muestra en la revelación. Las cookies `HttpOnly` **no** son visibles para JavaScript; esa limitación también se muestra porque es parte del aprendizaje.
+
 ## Estructura
 
 ```
@@ -95,7 +141,8 @@ public/admin.html  panel del expositor (contadores, tarjetas dinámicas, feed, Q
 
 ## Checklist día de la feria
 
-- [ ] `make up && make health` responde `ok`
+- [ ] `make up && make health` responde `ok` (app, juice-shop y webgoat)
+- [ ] (Si los usarás) Juice Shop en `:4000` / WebGoat en `:8080` — y **nunca** en el túnel
 - [ ] Túnel activo y HTTPS válido (la cámara exige contexto seguro)
 - [ ] Probado en Android Chrome **y** iOS Safari
 - [ ] Token del panel a la mano (léelo de `.env`, no lo compartas)
