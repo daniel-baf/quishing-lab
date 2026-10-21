@@ -4,8 +4,9 @@ services:
     env_file:
       - .env
     environment:
-      # La IP LAN no se puede autodetectar dentro del contenedor (solo ve la
-      # red de Docker); la detecta el Makefile en el host y la pasa aquí.
+      # The LAN IP cannot be autodetected inside the container (it only sees
+      # the Docker network); the Makefile detects it on the host and passes
+      # it in here.
       - LAN_IP=${LAN_IP:-}
     ports:
       - "${PORT:-3000}:3000"
@@ -15,29 +16,6 @@ services:
       timeout: 3s
       retries: 12
       start_period: 5s
-    restart: unless-stopped
-
-  # App intencionadamente vulnerable (víctima de práctica para la demo).
-  # NUNCA exponer por el túnel: solo LAN/localhost.
-  # Sin healthcheck: la imagen v20+ no incluye node/sh para sondear dentro
-  # del contenedor; el servicio se verifica desde el host con `make health`.
-  juice-shop:
-    image: bkimminich/juice-shop:latest
-    ports:
-      - "4000:3000"
-    restart: unless-stopped
-
-  # Curso guiado OWASP + WebWolf (request bin para exfiltración).
-  # Intencionadamente vulnerable: solo localhost.
-  # Desactivamos el healthcheck de la imagen upstream: usa curl, que la
-  # imagen no trae, y marcaría el contenedor "unhealthy" permanentemente.
-  webgoat:
-    image: webgoat/webgoat:latest
-    ports:
-      - "127.0.0.1:8080:8080"
-      - "127.0.0.1:9090:9090"
-    healthcheck:
-      disable: true
     restart: unless-stopped
 
   tunnel:

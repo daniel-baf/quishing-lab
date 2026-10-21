@@ -1,74 +1,95 @@
-# Contribuir a Quishing Lab
+# Contributing to Quishing Lab
 
-¡Gracias por tu interés! Este es un proyecto **puramente educativo** para enseñar cómo
-funciona un ataque de quishing (phishing por QR) y cómo se roban sesiones en el
-navegador, en un entorno controlado. Toda contribución debe mantener ese espíritu:
-didáctico, transparente y seguro.
+Thanks for your interest! This is a **purely educational** project that teaches
+how a quishing (QR phishing) attack works and how browser sessions get stolen,
+inside a controlled environment. Every contribution must keep that spirit:
+didactic, transparent and safe.
 
-## Reglas de oro (no negociables)
+> 🗣️ Language convention: code, comments, docs and variable names are English.
+> The on-screen UI copy stays Spanish (that is the fair's audience), so the
+> frontend maps English API codes (e.g. `cam: "granted"`) to Spanish text.
 
-1. **Nunca subas secretos.** `.env` está en `.gitignore`; debe seguir así. Usa solo
-   `.env.example` como referencia.
-2. **Datos ficticios siempre.** En demos y pruebas usa credenciales de juguete
-   (p. ej. `hacker@demo.com` / `hunter2`).
-3. **Sin ataques reales.** Este código no se usa contra personas sin su
-   consentimiento explícito. Ver `SECURITY.md`.
-4. **Juice Shop y WebGoat nunca se exponen a Internet.** Solo LAN/localhost.
+## Ground rules (non-negotiable)
 
-## Preparar el entorno
+1. **Never commit secrets.** `.env` is git-ignored; keep it that way. Use
+   `.env.example` as the only reference.
+2. **Fake data always.** Use toy credentials in demos and tests (e.g.
+   `hacker@demo.com` / `hunter2`).
+3. **No real attacks.** This code is not used against people without their
+   explicit consent. See [SECURITY.md](SECURITY.md).
+4. **Juice Shop and WebGoat are never exposed to the Internet.** LAN/localhost
+   only, via `docker-compose.practice.yml`.
+
+## Setting up the environment
 
 ```bash
 git clone git@github.com:daniel-baf/quishing-lab.git
 cd quishing-lab
-cp .env.example .env   # define un ADMIN_TOKEN largo y aleatorio
-make up && make health # Docker (recomendado)
+cp .env.example .env   # set a long, random ADMIN_TOKEN
+make up && make health # Docker (recommended)
 ```
 
-Alternativa sin Docker:
+Alternative without Docker:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Panel del expositor: `http://localhost:3000/admin` (pide el `ADMIN_TOKEN` de `.env`).
+Presenter dashboard: `http://localhost:3000/admin` (asks for the `ADMIN_TOKEN`
+from `.env`).
 
-## Flujo de trabajo
+Need the vulnerable practice stack for the QR arsenal?
 
-1. Crea una rama desde `main`:
-   - `feature/ux-panel-feed` — mejoras de UX/UI
-   - `fix/…` — correcciones
-   - `docs/…` — documentación
-2. Commits pequeños con mensaje claro. El repo usa prefijos tipo
-   [Conventional Commits](https://www.conventionalcommits.org/es/): `feat:`,
-   `fix:`, `chore:`, `docs:`.
-3. Abre un PR descriptivo: qué cambia, por qué, y cómo probarlo.
+```bash
+make practice-up && make health-practice
+```
 
-## Mapa del código
+## Workflow
 
-| Archivo | Qué contiene |
+1. Branch from `master`:
+   - `feature/ux-panel-feed` — UX/UI improvements
+   - `fix/…` — bug fixes
+   - `docs/…` — documentation
+2. Small commits with a clear message. The repo uses
+   [Conventional Commits](https://www.conventionalcommits.org/)-style prefixes:
+   `feat:`, `fix:`, `chore:`, `docs:`.
+3. Open a descriptive PR: what changes, why, and how to test it.
+
+## Code map
+
+| Path | What it holds |
 |---|---|
-| `server.js` | Backend Express + SSE; todo el estado vive en memoria (efímero por diseño) |
-| `public/index.html` | Landing móvil (cebo → formulario → revelación educativa) |
-| `public/admin.html` | Panel del expositor (contadores, feed en vivo, arsenal QR) |
-| `public/styles.css` | Estilos compartidos |
-| `Makefile` / `docker-compose.yml` / `Dockerfile` | Infra: app + túnel + Juice Shop + WebGoat |
+| `src/config/environment.js` | Env vars + LAN IP detection |
+| `src/shared/infrastructure/` | Cross-cutting in-memory infra: SSE hub, rate limiters, activity feed, UA parsers |
+| `src/sessions/` | Participant sessions domain: routes, controller, session store, public command store |
+| `src/live/` | Real-time channel: SSE stream, typing mirror, screen frames |
+| `src/loot/` | Stolen-session trap: unauthenticated `/api/loot`, bounded store, JWT email decoder |
+| `src/admin/` | Presenter dashboard API: stats, reveal, reset (token-protected) |
+| `src/publicConfig/` | Non-sensitive settings endpoint (`/api/config`) |
+| `src/app.js` / `src/server.js` | Express wiring and bootstrap entrypoint |
+| `public/index.html` | Mobile landing (bait → form → reveal) |
+| `public/admin.html` | Presenter dashboard (counters, cards, live feed, QR arsenal) |
+| `public/styles.css` | Shared styles |
+| `docker-compose.yml` / `docker-compose.practice.yml` / `Dockerfile` / `Makefile` | Infra: core app, practice stack, tunnel |
 
-## Guía para mejoras de UX/UI
+## UX/UI guide
 
-- La **landing** es *mobile-first* (se escanea con el teléfono): dedos grandes,
-  texto legible, pasos cortos.
-- El **panel** se proyecta en pantalla grande: contraste alto, tipografía grande,
-  estado visible a distancia.
-- Tono: revelar, no asustar. La pantalla final debe dejar claro qué se expuso y
-  cómo defenderse.
-- Sin frameworks ni build step: HTML/CSS/JS vanilla, para que cualquiera lo lea
-  en clase y entienda cada línea.
+- The **landing** is *mobile-first* (it is scanned with a phone): big tap
+  targets, readable text, short steps.
+- The **dashboard** is projected on a big screen: high contrast, large type,
+  state readable from a distance.
+- Tone: reveal, do not scare. The final screen must make clear what was exposed
+  and how to defend against it.
+- No frameworks, no build step: vanilla HTML/CSS/JS so anyone can read every
+  line in class.
+- When the backend changes a status code or counter name, update the frontend's
+  display maps (e.g. `CAMERA_STATUS_TEXT`, the counters array) in the same PR.
 
-## Checklist antes de pedir review
+## PR checklist
 
-- [ ] `make up && make health` responde `ok`
-- [ ] Probado en móvil real (Android Chrome **y** iOS Safari si toca la landing)
-- [ ] Sin secretos en el diff (`git diff` limpio de tokens)
-- [ ] README actualizado si el cambio modifica comportamiento o comandos
-- [ ] Solo datos ficticios en las pruebas
+- [ ] `make up && make health` answers `ok`
+- [ ] Tested on a real phone (Android Chrome **and** iOS Safari if the landing changed)
+- [ ] No secrets in the diff (`git diff` free of tokens)
+- [ ] README updated if behavior or commands changed
+- [ ] Only fake data used in tests

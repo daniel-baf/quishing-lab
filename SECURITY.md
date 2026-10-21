@@ -1,48 +1,50 @@
-# Política de seguridad
+# Security policy
 
-## Propósito del proyecto
+## Project purpose
 
-Quishing Lab es una **demo educativa** para ferias y aulas: muestra cómo funciona
-un QR malicioso (quishing) y cómo un XSS roba la sesión de una web, todo en un
-entorno controlado, con revelación final y datos ficticios. Parte de su código
-*simula* phishing a propósito: esa es la lección, no la función.
+Quishing Lab is an **educational** demo for fairs and classrooms: it shows how
+a malicious QR (quishing) works and how an XSS steals a web session, all inside
+a controlled environment, with a final reveal and fake data. Part of its code
+*simulates* phishing on purpose — that is the lesson, not the feature.
 
-## Reglas de uso
+## Usage rules
 
-- Uso **exclusivo** en entornos controlados (clase, feria universitaria, CTF) y
-  con consentimiento de quienes participan.
-- **Nunca** usar contra terceros sin su consentimiento explícito. El phishing no
-  consentido es ilegal en la mayoría de jurisdicciones, aunque "solo sea una
-  demo".
-- Las credenciales capturadas en las demos deben ser ficticias.
-- Las apps de práctica (OWASP Juice Shop, WebGoat) son vulnerables **a
-  propósito**: jamás exponerlas por el túnel de Cloudflare ni en una IP pública.
-  Solo LAN/localhost, y paradas (`docker compose stop juice-shop webgoat`) si no
-  se usan.
+- **Exclusive** use in controlled environments (classroom, university fair,
+  CTF) with the participants' consent.
+- **Never** use it against third parties without their explicit consent.
+  Non-consensual phishing is illegal in most jurisdictions, even if "it is
+  just a demo".
+- Credentials captured during demos must be fake.
+- The practice apps (OWASP Juice Shop, WebGoat) are vulnerable **on
+  purpose**: never expose them through the Cloudflare Tunnel or on a public
+  IP. LAN/localhost only — they live in `docker-compose.practice.yml`, and
+  `make practice-down` stops them when idle.
 
-## Diseño defensivo del propio lab (decisiones intencionales)
+## Defensive design of the lab itself (intentional choices)
 
-- **Estado solo en memoria:** al cerrar el proceso no queda nada; `Reiniciar`
-  borra todo. No añadir persistencia.
-- **Sin captura oculta:** la cámara es solo vista previa local; ningún frame sale
-  del dispositivo de la víctima.
-- **Endpoint-trampa sin auth (`/api/loot`)**: es intencional (la víctima no tiene
-  sesión con esta app) y sigue siendo efímero, con rate limit y tope de
-  elementos. No "arreglarlo" añadiendo login; documentado en `server.js`.
-- Los valores de cookies se almacenan **ya enmascarados** por el cliente.
-- `ADMIN_TOKEN` obligatorio para el panel; `.env` fuera del control de versiones.
+- **Memory-only state:** when the process stops nothing remains; the dashboard
+  `Reiniciar` wipes everything mid-demo. Do not add persistence.
+- **No hidden capture:** the camera is a local preview; no frame ever leaves
+  the participant's device.
+- **Unauthenticated trap endpoint (`/api/loot`)**: intentional — the victim's
+  browser has no session with this app and cannot send a token. It stays
+  ephemeral, rate-limited and capped. Do not "fix" it by adding login; it is
+  documented in `src/loot/controllers/lootController.js`.
+- Cookie values are stored **already masked** by the client.
+- `ADMIN_TOKEN` is mandatory for the dashboard; `.env` stays out of version
+  control.
 
-## Reportar una vulnerabilidad
+## Reporting a vulnerability
 
-Si encuentras un problema de seguridad en el propio lab —por ejemplo, que algo
-persista tras reiniciar, que un secreto pueda filtrarse, o que el aislamiento
-descrito arriba no se cumpla— **no abras un issue público con los detalles**:
+If you find a security flaw in the lab itself — e.g. something persists after
+a restart, a secret could leak, or the isolation described above is broken —
+**do not open a public issue with details**:
 
-1. Abre un **Security Advisory privado** en GitHub:
-   *Repositorio → Security → Advisories → New draft advisory*.
-2. Describe el impacto y pasos mínimos para reproducirlo.
-3. Si es urgente y tienes otro canal con los mantenedores, avisa por ahí
-   referenciando el borrador.
+1. Open a **private Security Advisory** on GitHub: *Repository → Security →
+   Advisories → New draft advisory*.
+2. Describe the impact and the minimal steps to reproduce.
+3. If it is urgent and you have another channel with the maintainers, ping them
+   there referencing the draft.
 
-Respondemos lo antes posible y publicaremos el fix con crédito, salvo que pidas
-lo contrario.
+We respond as soon as possible and will publish the fix with credit unless you
+ask otherwise.

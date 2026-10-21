@@ -1,0 +1,29 @@
+# Intentionally vulnerable practice stack used by the QR arsenal in the
+# dashboard (bait app + XSS session-theft target + guided lessons).
+#
+# NEVER expose these services to the Internet: they are intentionally
+# vulnerable and anyone with the URL gets in. LAN/localhost only (see
+# SECURITY.md).
+
+services:
+  # Bait app + session-theft target (the XSS payload reads its JWT from
+  # sessionStorage and exfiltrates it to the main app's /api/loot).
+  # No healthcheck: the v20+ image ships no node/sh to probe from inside the
+  # container; the service is verified from the host with `make health-practice`.
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    ports:
+      - "4000:3000"
+    restart: unless-stopped
+
+  # Guided OWASP course + WebWolf (a request bin for exfiltration practice).
+  # The upstream image healthcheck uses curl, which the image lacks, and would
+  # mark the container unhealthy forever — disabled on purpose.
+  webgoat:
+    image: webgoat/webgoat:latest
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      disable: true
+    restart: unless-stopped

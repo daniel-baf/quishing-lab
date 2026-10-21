@@ -1,4 +1,4 @@
-/* ============ landing (móvil) ============ */
+/* ============ landing (mobile) ============ */
 body.phone {
   margin: 0; font-family: system-ui, -apple-system, sans-serif;
   background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
@@ -47,7 +47,7 @@ body.phone {
 .leak li span { color: #ffd166; word-break: break-all; text-align: right; }
 .tips { padding-left: 1.2rem; display: grid; gap: .5rem; opacity: .9; }
 
-/* ============ panel admin ============ */
+/* ============ admin dashboard ============ */
 body.admin { margin: 0; background: #0a0e14; color: #d7e0ea; font-family: ui-monospace, Menlo, Consolas, monospace; min-height: 100vh; }
 .gate { position: fixed; inset: 0; display: grid; place-items: center; background: #0a0e14; }
 .gate[hidden] { display: none; }
@@ -79,13 +79,13 @@ body.admin { margin: 0; background: #0a0e14; color: #d7e0ea; font-family: ui-mon
 .card small { opacity: .5; }
 .card.empty { grid-column: 1 / -1; text-align: center; padding: 2rem; }
 .card.empty h3 { margin-top: 0; }
-/* espejo en vivo + pantalla compartida dentro de cada tarjeta */
+/* live mirror + shared screen inside each card */
 .mirror { margin-top: .8rem; padding-top: .8rem; border-top: 1px dashed #1f2937; display: grid; gap: .35rem; font-size: .82rem; }
 .mirror .mrow { color: #9fb3c8; word-break: break-all; }
 .mirror .mrow b, .mirror .mrow span { color: #ffd166; }
 .frame { width: 100%; margin-top: .8rem; border-radius: 8px; border: 1px solid #2a3646; background: #000; display: block; }
 .noframe { margin-top: .8rem; font-size: .78rem; opacity: .4; text-align: center; padding: .8rem; border: 1px dashed #1f2937; border-radius: 8px; }
-/* cebo de compartir pantalla en la landing */
+/* screen-share bait section on the landing */
 .share { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid rgba(255,255,255,.12); }
 .bottom { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-top: 1.5rem; }
 @media (max-width: 900px) { .bottom { grid-template-columns: 1fr; } }
@@ -97,7 +97,7 @@ body.admin { margin: 0; background: #0a0e14; color: #d7e0ea; font-family: ui-mon
 .qrbox input { width: 100%; box-sizing: border-box; padding: .8rem; margin-bottom: .6rem; border-radius: 8px; border: 1px solid #2a3646; background: #0d1420; color: #fff; }
 .qr { margin-top: 1rem; background: #fff; padding: .8rem; border-radius: 8px; display: inline-block; min-height: 20px; }
 
-/* arsenal QR + tabla de botín */
+/* QR arsenal + loot table */
 .arsenal { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
 .qr.mini { padding: .5rem; }
 .qr.mini img, .qr.mini canvas { width: 160px !important; height: 160px !important; }

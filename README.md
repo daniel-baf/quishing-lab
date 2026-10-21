@@ -1,166 +1,227 @@
-# 🕳️ Quishing Lab — Demo educativa para feria universitaria
+# 🕳️ Quishing Lab — Educational demo for university fairs
 
-Demostración controlada de **quishing** (phishing por QR): un voluntario escanea un QR de
-"concurso", interactúa con una landing y, en una revelación guiada, descubre qué información
-expone una web y qué decisiones tomó. Todo corre **localmente en tu laptop** (solo memoria;
-al cerrar el proceso no queda nada) y se expone temporalmente con Cloudflare Tunnel.
+A controlled demonstration of **quishing** (QR-code phishing): a volunteer scans a
+"contest" QR, interacts with a landing page and, in a guided reveal, finds out
+what information a website can expose and which decisions they made along the
+way. Everything runs **locally on your laptop** (memory only; nothing survives
+once the process stops) and is temporarily exposed through a Cloudflare Tunnel.
 
-> ⚠️ Uso responsable: presenta siempre la revelación educativa al final, anuncia que es una
-> demo y borra/reinicia entre sesiones. La credencial que se capture debe ser ficticia
-> (el presentador escribe datos de prueba, p. ej. `hacker@demo.com` / `hunter2`).
-> Lee [SECURITY.md](SECURITY.md) antes de usarla fuera de tu máquina.
+> ⚠️ Responsible use: always run the educational reveal at the end, announce
+> that this is a demo, and wipe/restart between sessions. Any captured
+> credential must be fake (the presenter types test data, e.g.
+> `hacker@demo.com` / `hunter2`). Read [SECURITY.md](SECURITY.md) before using
+> it beyond your own machine.
 
-> 🤝 ¿Quieres colaborar? La guía de desarrollo y UX/UI está en [CONTRIBUTING.md](CONTRIBUTING.md).
+> 🤝 Want to contribute? The development and UX/UI guide lives in
+> [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Arranque con Docker (recomendado)
+> 🗣️ Note: the code, docs and comments are in English; the on-screen UI copy
+> stays in Spanish because that is the audience at the fair.
+
+## Quick start with Docker (recommended)
 
 ```bash
 cp .env.example .env
-# Edita .env: define un ADMIN_TOKEN largo, único y estable.
+# Edit .env: set a long, unique, stable ADMIN_TOKEN.
 make up
 make health
 ```
 
-Abre el panel en `http://localhost:3000/admin` e introduce el valor de `ADMIN_TOKEN` de
-`.env`. Ese token no cambia al reiniciar los contenedores, por lo que no aparecerán 401
-causados por un token aleatorio nuevo. Si el navegador conserva un token inválido, el panel
-lo elimina automáticamente y vuelve a pedirlo.
+Open the dashboard at `http://localhost:3000/admin` and enter the `ADMIN_TOKEN`
+from `.env`. The token does not change when containers restart, so you will not
+see 401s caused by a fresh random token. If the browser keeps an invalid token,
+the dashboard drops it automatically and asks again.
 
-Comandos habituales:
+Common commands:
 
 ```bash
-make logs       # logs de la aplicación
-make logs-victim  # logs de Juice Shop y WebGoat
-make down       # detiene aplicación y túnel
-make tunnel     # inicia app + Quick Tunnel y deja sus logs en pantalla
+make logs            # app logs
+make down            # stops the app, the tunnel and the practice stack
+make tunnel          # starts app + Quick Tunnel and streams its logs
 ```
 
-## Apps de práctica (intencionadamente vulnerables)
+## Practice stack (intentionally vulnerable)
 
-`make up` también levanta dos aplicaciones de entrenamiento oficialmente
-vulnerables, pensadas para la parte de la demo que va más allá del QR:
-XSS, robo de sesión y CSRF.
+The QR arsenal in the dashboard targets two deliberately vulnerable training
+apps — the demo goes beyond the QR into XSS, session theft and CSRF. They live
+in a **separate Compose file** and are started independently:
 
-- **OWASP Juice Shop** — tienda online vulnerable en `http://localhost:4000`
-  (en la LAN: `http://IP-del-portátil:4000`). Incluye el reto QR "Forged
-  Coupon", DOM-XSS en el buscador y la sesión (JWT) guardada en
-  `sessionStorage`, legible desde un XSS. Reset = recrear el contenedor:
-  `docker compose up -d --force-recreate juice-shop`.
-- **OWASP WebGoat** — curso guiado en `http://localhost:8080/WebGoat`, con su
-  companion WebWolf (un "request bin" para recibir exfiltraciones) en
-  `http://localhost:9090/WebWolf`. Solo escucha en localhost.
+```bash
+make practice-up      # Juice Shop + WebGoat
+make health-practice  # verify both respond
+make logs-practice    # follow their logs
+make practice-down    # stop them
+```
 
-> ⚠️ **Nunca** expongas Juice Shop ni WebGoat por el túnel de Cloudflare: son
-> vulnerables a propósito y cualquiera con la URL puede entrar. Deben quedarse
-> en la LAN/VM. Si no los usas en una sesión:
-> `docker compose stop juice-shop webgoat`.
+- **OWASP Juice Shop** — vulnerable online store at `http://localhost:4000`
+  (on the LAN: `http://LAPTOP-IP:4000`). Includes the "Forged Coupon" QR
+  challenge, DOM-XSS in the search box and the session JWT stored in
+  `sessionStorage`, readable from an XSS. Reset = recreate the container:
+  `docker compose -f docker-compose.practice.yml up -d --force-recreate juice-shop`.
+- **OWASP WebGoat** — guided course at `http://localhost:8080/WebGoat`, with its
+  WebWolf companion (a request bin for exfiltration practice) at
+  `http://localhost:9090/WebWolf`. Listens on localhost only.
 
-### Demo extendida: robo de sesión desde un QR
+> ⚠️ **Never** expose Juice Shop or WebGoat through the Cloudflare Tunnel: they
+> are vulnerable on purpose and anyone with the URL gets in. Keep them on the
+> LAN/VM. If you are not using them in a session: `make practice-down`.
 
-El panel incluye un **arsenal QR** (debajo del feed) que demuestra que un QR
-también puede robar una sesión sin pedir credenciales:
+### Extended demo: session theft from a QR
 
-1. **QR 1 (cebo)** apunta a Juice Shop (`http://IP-LAN:4000/`). La víctima se
-   registra e inicia sesión. Todo legítimo.
-2. **QR 2 (robo)** abre el buscador de Juice Shop con un payload XSS que envía
-   el JWT de sesión a `GET /api/loot` de este servidor. El panel cuenta las
-   ejecuciones y las sesiones robadas, y lista cada JWT con el email de la
-   víctima decodificado (click en el token = copiarlo).
-3. **Remate:** en una pestaña nueva de Juice Shop,
-   `sessionStorage.setItem('token','…')` con el JWT copiado → estás dentro de
-   la cuenta de la víctima, sin saber su contraseña.
+The dashboard includes a **QR arsenal** (below the feed) that shows how a QR can
+also steal a session without asking for credentials:
 
-El **QR 3 (libre)** es para URLs propias, p. ej. la inyección SQL de
-`/rest/products/search` de Juice Shop, que también cabe en un QR.
+1. **QR 1 (bait)** points to Juice Shop (`http://LAN-IP:4000/`). The victim
+   registers and logs in. All legitimate.
+2. **QR 2 (theft)** opens Juice Shop's search box with an XSS payload that
+   sends the session JWT to this server's `GET /api/loot`. The dashboard counts
+   executions and stolen sessions, and lists each JWT with the victim's decoded
+   email (click the token to copy it).
+3. **Finale:** in a new Juice Shop tab, run `sessionStorage.setItem('token','…')`
+   with the copied JWT → you are inside the victim's account without knowing
+   their password.
 
-Reglas de oro: usar siempre la **IP LAN, nunca `localhost`** (`sessionStorage`
-es por origen: si se mezclan, el token "no existe" y llega `loot=none`); Juice
-Shop nunca por el túnel; y `Reiniciar` limpia también el botín. La IP LAN se
-autodetecta al hacer `make up`; se fuerza con `LAN_IP=192.168.x.x make up`.
+**QR 3 (free-form)** is for your own URLs, e.g. the SQL injection of Juice
+Shop's `/rest/products/search`, which also fits in a QR.
 
-## Exponerlo con Cloudflare Tunnel
+Golden rules: always use the **LAN IP, never `localhost`** (`sessionStorage`
+is per-origin: mix them and the token "does not exist", so `loot=none` arrives);
+Juice Shop never goes through the tunnel; and `Reiniciar` also wipes the loot.
+The LAN IP is autodetected when you run `make up`; force it with
+`LAN_IP=192.168.x.x make up`.
+
+## Exposing it with a Cloudflare Tunnel
 
 ```bash
 make tunnel
 ```
 
-Busca en los logs de `make tunnel` la URL `https://….trycloudflare.com` que imprime
-Cloudflare. Cópiala al campo **QR del concurso** del panel y pulsa **Generar QR**
-(proyecta el QR para que lo escaneen). La URL cambia cada vez que se recrea el Quick Tunnel.
+Look in the `make tunnel` logs for the `https://….trycloudflare.com` URL that
+Cloudflare prints. Paste it into the dashboard's **QR del concurso** field and
+hit **Generar QR** (project the QR so people can scan it). The URL changes
+every time the Quick Tunnel is recreated.
 
-El contenedor `tunnel` usa el perfil de Compose `tunnel` y apunta internamente a `app:3000`;
-no necesitas instalar `cloudflared` en la laptop. Para volver a mirar la URL:
+The `tunnel` container uses the Compose `tunnel` profile and points internally
+at `app:3000`; you do not need `cloudflared` installed on the laptop. To see
+the URL again:
 
 ```bash
 make tunnel-logs
 ```
 
-Los **Quick Tunnels** (`trycloudflare.com`) no ofrecen una entrega fiable de Server-Sent
-Events. Por eso los teléfonos mantienen SSE cuando esté disponible, pero además consultan
-por HTTP cada ~2 segundos las órdenes de **REVELAR** y **Reiniciar**. No necesitas cuatro
-participantes: la demo funciona igual con una sola persona o con tantas como se conecten.
+**Quick Tunnels** (`trycloudflare.com`) do not reliably deliver Server-Sent
+Events, so phones keep SSE when available and *also* poll over HTTP every ~2
+seconds for the **REVELAR** and **Reiniciar** commands. You do not need four
+participants: the demo works the same with one person or as many as connect.
 
-## Modo automático de permisos
+## Automatic permission mode
 
-La landing ya no muestra botones para "activar cámara/pantalla": al enviar el formulario (o al entrar si `ENABLE_FAKE_LOGIN=false`) intenta solicitar ambos permisos automáticamente. Esto **no elimina** los diálogos nativos del navegador ni los convierte en consentimiento invisible: si el navegador exige un gesto de usuario o la persona niega, el evento queda reflejado como rechazado en el panel.
+The landing page no longer shows "enable camera/screen" buttons: on form submit
+(or on load if `ENABLE_FAKE_LOGIN=false`) it tries to request both permissions
+automatically. This does **not** remove the browser's native dialogs or turn
+them into invisible consent: if the browser requires a user gesture or the
+person denies, the event shows up as denied on the dashboard.
 
-## Arranque local alternativo
+## Alternative local start
 
 ```bash
 npm install
 npm start
 ```
 
-También usa el `.env` con el mismo `ADMIN_TOKEN` estable.
+Uses the same `.env` with the same stable `ADMIN_TOKEN`.
 
-## Guion sugerido (5–7 min)
+## Suggested script (5–7 min)
 
-1. **Cebo (30 s):** QR en pantalla "Gana un Kit Hacker". Tú (o un voluntario consciente del gag) escaneas.
-2. **Interacción (1–2 min):** en el teléfono, llenas el formulario (datos ficticios) y activas la cámara
-   (el navegador mostrará su diálogo de permiso — es parte del mensaje).
-3. **Panel (1 min):** proyectas el tablero: ves llegar `✍️ tecleando`, `🔑 ENVIÓ CREDENCIALES`,
-   `✅ PERMISO CONCEDIDO`. Cada dato aparece en vivo.
-4. **Revelación (1 min):** pulsas 🚨 REVELAR. Los teléfonos muestran "Este QR era una trampa" con su
-   lista personal de datos filtrados.
-5. **Defensas (2 min):** verificar dominios, gestor de contraseñas, permisos mínimos, desconfiar de
-   premios/urgencias. Remata: "esto es lo que hacemos en ciberseguridad".
+1. **Bait (30 s):** QR on screen — "Gana un Kit Hacker". You (or a volunteer who
+   is in on the gag) scans it.
+2. **Interaction (1–2 min):** on the phone, fill in the form (fake data) and
+   enable the camera (the browser shows its permission dialog — that is part of
+   the message).
+3. **Dashboard (1 min):** project the panel: watch `✍️ tecleando`,
+   `🔑 ENVIÓ CREDENCIALES`, `✅ PERMISO CONCEDIDO` arrive live.
+4. **Reveal (1 min):** press 🚨 REVELAR. The phones show "Este QR era una
+   trampa" with each person's own list of leaked data.
+5. **Defenses (2 min):** verify domains, use a password manager, minimal
+   permissions, distrust prizes and urgency. Close with: "this is what we do in
+   cybersecurity."
 
-## Límites intencionales (diseño)
+## Intentional design limits
 
-- **Sin captura oculta:** la cámara es solo vista previa local; ningún frame sale del dispositivo.
-- **Sin datos persistentes:** todo en memoria; `Reiniciar` lo borra todo y recarga los teléfonos.
-- Los permisos de cámara/geolocalización **los controla el navegador** — no hay forma (ni intención)
-  de saltarlos; el momento del diálogo de permiso es didáctico.
+- **No hidden capture:** the camera is a local preview only; no frame ever
+  leaves the device.
+- **No persisted data:** everything is in memory; `Reiniciar` wipes it all and
+  reloads the phones.
+- Camera/geolocation permissions are **controlled by the browser** — there is no
+  way (nor intent) to bypass the dialog; the moment the dialog appears is the
+  teaching moment.
+- **Cookies:** the landing only reads `document.cookie` on the demo domain,
+  masks the values and shows them in the reveal. `HttpOnly` cookies are **not**
+  visible to JavaScript; that limitation is shown too, because it is part of the
+  lesson.
 
-- **Cookies:** la landing lee solo `document.cookie` del dominio de la demo, enmascara los valores y los muestra en la revelación. Las cookies `HttpOnly` **no** son visibles para JavaScript; esa limitación también se muestra porque es parte del aprendizaje.
-
-## Estructura
+## Project structure
 
 ```
-server.js          backend Express + SSE (estado en memoria)
-public/index.html  landing móvil (concurso → cámara → revelación)
-public/admin.html  panel del expositor (contadores, tarjetas dinámicas, feed, QR)
+src/
+  server.js                         bootstrap: load config, create app, listen
+  app.js                            Express wiring: parsers, headers, routers, static
+  config/environment.js             env vars + LAN IP detection
+  shared/infrastructure/            cross-cutting, in-memory infra
+    activityFeed.js                 bounded event log (dashboard feed)
+    rateLimiter.js                  sliding-window IP rate limiters
+    parsers.js                      User-Agent → browser/OS summaries
+    sseHub.js                       SSE client registry + broadcast helpers
+  sessions/                         participant sessions domain
+    api/routes.js                   /api/session, /api/events, /api/session/* 
+    controllers/sessionController.js
+    models/sessionStore.js          session map, stages, status codes, labels
+    models/publicCommandStore.js    reveal/reset orders (SSE + polling fallback)
+  live/                             real-time channel domain
+    api/routes.js                   /api/live (SSE), /api/mirror, /api/screen
+    controllers/liveController.js
+  loot/                             stolen-session trap domain
+    api/routes.js                   /api/loot (intentionally unauthenticated)
+    controllers/lootController.js
+    models/lootStore.js
+    services/decodeJwtEmail.js
+  admin/                            presenter dashboard domain
+    api/routes.js                   /api/admin/* (token-protected)
+    controllers/adminController.js
+    middleware/requireAdminToken.js
+  publicConfig/                     non-sensitive settings for the frontend
+    api/routes.js                   /api/config
+public/
+  index.html                        mobile landing (contest → camera → reveal)
+  admin.html                        presenter dashboard (counters, cards, feed, QR)
+  styles.css                        shared styles
+docker-compose.yml                  core demo app + tunnel profile
+docker-compose.practice.yml         Juice Shop + WebGoat (vulnerable practice stack)
 ```
 
-## Checklist día de la feria
+The API speaks English (`cam: "granted"`, counters like `lootStolen`, stages
+like `revealed`); the frontend translates them into Spanish for display.
 
-- [ ] `make up && make health` responde `ok` (app, juice-shop y webgoat)
-- [ ] (Si los usarás) Juice Shop en `:4000` / WebGoat en `:8080` — y **nunca** en el túnel
-- [ ] Túnel activo y HTTPS válido (la cámara exige contexto seguro)
-- [ ] Probado en Android Chrome **y** iOS Safari
-- [ ] Token del panel a la mano (léelo de `.env`, no lo compartas)
-- [ ] Datos ficticios listos para escribir
-- [ ] Después de la feria: Ctrl+C y `rm -rf` del proyecto → cero residuos
+## Fair-day checklist
 
-## Contribuir
+- [ ] `make up && make health` answers `ok`
+- [ ] (If used) practice stack up via `make practice-up` — Juice Shop on `:4000`,
+      WebGoat on `:8080` — and **never** in the tunnel
+- [ ] Tunnel active with valid HTTPS (the camera requires a secure context)
+- [ ] Tested on Android Chrome **and** iOS Safari
+- [ ] Dashboard token at hand (read it from `.env`, do not share it)
+- [ ] Fake credentials ready to type
+- [ ] After the fair: Ctrl+C and `rm -rf` the project → zero leftovers
 
-Las mejoras son bienvenidas —UX/UI de la landing o el panel, nuevos retos del
-arsenal QR, docencia. Mira [CONTRIBUTING.md](CONTRIBUTING.md) para el flujo de
-trabajo y la guía de estilo.
+## Contributing
 
-## Seguridad
+Improvements are welcome — UX/UI of the landing or dashboard, new QR arsenal
+challenges, teaching material. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+workflow and style guide.
 
-Si encuentras un fallo de seguridad en el propio lab (persistencia accidental,
-fuga de secretos, aislamiento roto), repórtalo de forma privada siguiendo
-[SECURITY.md](SECURITY.md). No abras issues públicos con detalles de
-vulnerabilidades.
+## Security
+
+If you find a security flaw in the lab itself (accidental persistence, secret
+leak, broken isolation), report it privately following
+[SECURITY.md](SECURITY.md). Do not open public issues with vulnerability
+details.

