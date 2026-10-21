@@ -4,6 +4,12 @@
 # NEVER expose these services to the Internet: they are intentionally
 # vulnerable and anyone with the URL gets in. LAN/localhost only (see
 # SECURITY.md).
+#
+# Own project name on purpose: it shares this directory with the main
+# docker-compose.yml, and without a distinct name Compose flags the panel's
+# container as an "orphan" every time the practice stack starts.
+
+name: quishing-lab-practice
 
 services:
   # Bait app + session-theft target (the XSS payload reads its JWT from
