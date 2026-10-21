@@ -1,4 +1,4 @@
-# 🕳️ Quishing Lab — Educational demo for university fairs
+# Quishing Lab — Educational demo for university fairs
 
 A controlled demonstration of **quishing** (QR-code phishing): a volunteer scans a
 "contest" QR, interacts with a landing page and, in a guided reveal, finds out
@@ -6,16 +6,16 @@ what information a website can expose and which decisions they made along the
 way. Everything runs **locally on your laptop** (memory only; nothing survives
 once the process stops) and is temporarily exposed through a Cloudflare Tunnel.
 
-> ⚠️ Responsible use: always run the educational reveal at the end, announce
+> **Responsible use:** always run the educational reveal at the end, announce
 > that this is a demo, and wipe/restart between sessions. Any captured
 > credential must be fake (the presenter types test data, e.g.
 > `hacker@demo.com` / `hunter2`). Read [SECURITY.md](SECURITY.md) before using
 > it beyond your own machine.
 
-> 🤝 Want to contribute? The development and UX/UI guide lives in
+> **Want to contribute?** The development and UX/UI guide lives in
 > [CONTRIBUTING.md](CONTRIBUTING.md).
 
-> 🗣️ Note: the code, docs and comments are in English; the on-screen UI copy
+> **Note:** the code, docs and comments are in English; the on-screen UI copy
 > stays in Spanish because that is the audience at the fair.
 
 ## Quick start with Docker (recommended)
@@ -62,7 +62,7 @@ make practice-down    # stop them
   WebWolf companion (a request bin for exfiltration practice) at
   `http://localhost:9090/WebWolf`. Listens on localhost only.
 
-> ⚠️ **Never** expose Juice Shop or WebGoat through the Cloudflare Tunnel: they
+> **Never** expose Juice Shop or WebGoat through the Cloudflare Tunnel: they
 > are vulnerable on purpose and anyone with the URL gets in. Keep them on the
 > LAN/VM. If you are not using them in a session: `make practice-down`.
 
@@ -138,9 +138,10 @@ Uses the same `.env` with the same stable `ADMIN_TOKEN`.
 2. **Interaction (1–2 min):** on the phone, fill in the form (fake data) and
    enable the camera (the browser shows its permission dialog — that is part of
    the message).
-3. **Dashboard (1 min):** project the panel: watch `✍️ tecleando`,
-   `🔑 ENVIÓ CREDENCIALES`, `✅ PERMISO CONCEDIDO` arrive live.
-4. **Reveal (1 min):** press 🚨 REVELAR. The phones show "Este QR era una
+3. **Dashboard (1 min):** project the panel: watch `tecleando` (typing),
+   `ENVIÓ CREDENCIALES` (credentials sent) and `PERMISO CONCEDIDO` (permission
+   granted) arrive live.
+4. **Reveal (1 min):** press REVELAR. The phones show "Este QR era una
    trampa" with each person's own list of leaked data.
 5. **Defenses (2 min):** verify domains, use a password manager, minimal
    permissions, distrust prizes and urgency. Close with: "this is what we do in

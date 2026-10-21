@@ -5,7 +5,7 @@ how a quishing (QR phishing) attack works and how browser sessions get stolen,
 inside a controlled environment. Every contribution must keep that spirit:
 didactic, transparent and safe.
 
-> 🗣️ Language convention: code, comments, docs and variable names are English.
+> **Language convention:** code, comments, docs and variable names are English.
 > The on-screen UI copy stays Spanish (that is the fair's audience), so the
 > frontend maps English API codes (e.g. `cam: "granted"`) to Spanish text.
 

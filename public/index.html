@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>⚡ TechFest — Reto Express</title>
+<title>TechFest — Reto Express</title>
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="phone">
@@ -11,7 +11,7 @@
 
   <!-- SCENE 1: contest bait + fake login -->
   <section id="stage1" class="scene active">
-    <div class="brand">⚡ TECHFEST 2026</div>
+    <div class="brand">TECHFEST 2026</div>
     <h1>Gana un <span>Kit Hacker</span></h1>
     <p class="sub">Regístrate al reto express. Los 3 mejores tiempos del día ganan premio.</p>
     <form id="loginForm" autocomplete="off">
@@ -41,16 +41,15 @@
   <section id="done" class="scene">
     <div class="spinner"></div>
     <h2>¡Registro completo!</h2>
-    <p>Anunciamos ganadores en pantalla cada 5 minutos… 👀</p>
+    <p>Anunciamos ganadores en pantalla cada 5 minutos…</p>
   </section>
 
   <!-- SCENE 3: the reveal -->
   <section id="reveal" class="scene">
-    <div class="skull">🎭</div>
     <h1>Este QR era una <span>trampa</span></h1>
     <p class="sub">Nada salió de esta sala: todo se procesó en la laptop del expositor. Esto es lo que compartiste sin darte cuenta:</p>
     <ul id="leak" class="leak"></ul>
-    <h3>🛡️ Cómo defenderte la próxima vez</h3>
+    <h3>Cómo defenderte la próxima vez</h3>
     <ol class="tips">
       <li>Verifica el <b>dominio</b> antes de entrar a cualquier concurso.</li>
       <li>Nunca reutilices contraseñas: usa un <b>gestor de contraseñas</b>.</li>
@@ -143,7 +142,7 @@ function mirrorDebounced() {
     collectCookies();
     if (!session.fakeLogin) { show('stage2'); autoActivatePermissions(); }
   } catch (e) {
-    document.body.innerHTML = '<p style="padding:2rem">⚠️ Sin conexión con el servidor de la demo.</p>';
+    document.body.innerHTML = '<p style="padding:2rem">Sin conexión con el servidor de la demo.</p>';
   }
   post('landing_viewed');
 })();
@@ -297,15 +296,15 @@ async function showReveal() {
     if (data.conn) leakEntries.push(['Conexión', data.conn]);
     if (data.mem) leakEntries.push(['RAM aprox.', data.mem + ' GB']);
     if (data.cores) leakEntries.push(['Núcleos CPU', data.cores]);
-    if (data.login) { leakEntries.push(['📧 Correo', data.login.email]); leakEntries.push(['🔑 Contraseña', data.login.password]); }
-    leakEntries.push(['⌨️ Lo que tecleaste', 'se reflejó letra por letra en el panel']);
+    if (data.login) { leakEntries.push(['Correo', data.login.email]); leakEntries.push(['Contraseña', data.login.password]); }
+    leakEntries.push(['Lo que tecleaste', 'se reflejó letra por letra en el panel']);
     leakEntries.push(['Cámara', CAMERA_STATUS_TEXT[data.cam] || data.cam || 'sin solicitar']);
     if (Array.isArray(data.cookies)) {
       leakEntries.push(['Cookies visibles a JS', data.cookies.length ? data.cookies.map(c => c.name + ' = ' + c.value).join(', ') : 'ninguna en este dominio']);
       leakEntries.push(['Cookies HttpOnly', 'no accesibles para JavaScript: requieren XSS, servidor o malware para robarse']);
     }
     if (data.share && data.share !== 'not_requested') {
-      leakEntries.push(['🖥️ Pantalla', data.share === 'denied' ? 'te negaste (¡bien hecho!)' : 'se transmitió al panel en vivo']);
+      leakEntries.push(['Pantalla compartida', data.share === 'denied' ? 'te negaste (¡bien hecho!)' : 'se transmitió al panel en vivo']);
     }
     $('leak').innerHTML = leakEntries.map(entry =>
       '<li><b>' + entry[0] + '</b><span>' + String(entry[1]).replace(/</g, '&lt;') + '</span></li>'

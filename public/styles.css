@@ -37,7 +37,6 @@ body.phone {
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.skull { font-size: 3rem; text-align: center; }
 .leak { list-style: none; padding: 0; margin: 1.2rem 0; display: grid; gap: .5rem; }
 .leak li {
   display: flex; justify-content: space-between; gap: 1rem;
