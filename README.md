@@ -29,9 +29,13 @@ only; nothing survives once the process stops).
    from `sessionStorage` and exfiltrates it to this panel's `GET /api/loot`.
    The dashboard counts executions and stolen sessions, and lists each JWT
    with the victim's decoded email.
-3. **Replay finale.** Click a token in the loot table to copy it, then in a
-   fresh Juice Shop tab run `sessionStorage.setItem('token','…')` → you are
-   inside the victim's account without ever knowing their password.
+3. **Replay finale.** Click a token in the loot table — it copies a complete,
+   ready-to-paste replay script — then paste it into the browser console (F12)
+   of any Juice Shop tab and press Enter. You are inside the victim's account
+   without ever knowing their password. Juice Shop's login stores the JWT in
+   `localStorage` **and** the basket id in `sessionStorage`; a replay without
+   `bid` makes the app request `/rest/basket/NaN` and crash, so use the copied
+   script which sets both.
 4. **QR 3 — free-form.** Paste any malicious URL (e.g. Juice Shop's SQL
    injection in `/rest/products/search`) and project it as a QR too.
 
