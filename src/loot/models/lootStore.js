@@ -1,5 +1,5 @@
 // Stolen session tokens received through the trap endpoint. Bounded, in-memory,
-// ephemeral — exactly like everything else in this demo.
+// ephemeral — when the process stops, everything is gone.
 const MAX_LOOT_ENTRIES = 200;
 const loots = [];
 
@@ -21,6 +21,7 @@ function lootCounters() {
   return {
     executions: loots.length,
     stolen: loots.filter(l => l.stolen).length,
+    empty: loots.filter(l => !l.stolen).length,
   };
 }
 

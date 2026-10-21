@@ -15,19 +15,10 @@ function createRateLimiter({ windowMs, maxRequests, message }) {
   };
 }
 
-// Discrete events from the landing page: strict budget.
-const EVENT_RATE_LIMITER = createRateLimiter({
+const LOOT_RATE_LIMITER = createRateLimiter({
   windowMs: 10_000,
   maxRequests: 30,
-  message: 'too many events',
+  message: 'too many requests',
 });
 
-// High-frequency live traffic (keystroke mirror + ~2 fps screen frames): a
-// much looser budget, still bounded.
-const LIVE_RATE_LIMITER = createRateLimiter({
-  windowMs: 10_000,
-  maxRequests: 120,
-  message: 'too much live traffic',
-});
-
-module.exports = { createRateLimiter, EVENT_RATE_LIMITER, LIVE_RATE_LIMITER };
+module.exports = { createRateLimiter, LOOT_RATE_LIMITER };

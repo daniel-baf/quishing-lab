@@ -1,50 +1,71 @@
-# Quishing Lab — Educational demo for university fairs
+# Quishing Lab — QR arsenal for session-theft demonstrations
 
-A controlled demonstration of **quishing** (QR-code phishing): a volunteer scans a
-"contest" QR, interacts with a landing page and, in a guided reveal, finds out
-what information a website can expose and which decisions they made along the
-way. Everything runs **locally on your laptop** (memory only; nothing survives
-once the process stops) and is temporarily exposed through a Cloudflare Tunnel.
+An educational panel that turns QR codes into attack vectors against
+**intentionally vulnerable training apps**. It exists for university fairs and
+classrooms: participants scan printed QRs, a stored session lands on the
+projected dashboard, and the replay finale shows why "the browser already
+logged me in" is not protection.
 
-> **Responsible use:** always run the educational reveal at the end, announce
-> that this is a demo, and wipe/restart between sessions. Any captured
-> credential must be fake (the presenter types test data, e.g.
-> `hacker@demo.com` / `hunter2`). Read [SECURITY.md](SECURITY.md) before using
-> it beyond your own machine.
+The panel itself only generates QRs and collects what the XSS payload sends it —
+there is **no phishing landing and no victim simulation** here, just the
+arsenal and the loot table. Everything runs **locally on your laptop** (memory
+only; nothing survives once the process stops).
 
-> **Want to contribute?** The development and UX/UI guide lives in
-> [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Responsible use:** run it in controlled environments (classroom, fair,
+> CTF) with consenting participants and fake accounts. Read
+> [SECURITY.md](SECURITY.md) before using it beyond your own machine.
+
+> **Want to contribute?** See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > **Note:** the code, docs and comments are in English; the on-screen UI copy
 > stays in Spanish because that is the audience at the fair.
 
-## Quick start with Docker (recommended)
+## What it demonstrates
+
+1. **QR 1 — bait (Juice Shop).** The participant scans it, registers and logs
+   in on the intentionally vulnerable OWASP Juice Shop. All legitimate.
+2. **QR 2 — session theft (XSS).** With the session active, the QR opens Juice
+   Shop's search box with a stored-DOM-XSS payload that reads the session JWT
+   from `sessionStorage` and exfiltrates it to this panel's `GET /api/loot`.
+   The dashboard counts executions and stolen sessions, and lists each JWT
+   with the victim's decoded email.
+3. **Replay finale.** Click a token in the loot table to copy it, then in a
+   fresh Juice Shop tab run `sessionStorage.setItem('token','…')` → you are
+   inside the victim's account without ever knowing their password.
+4. **QR 3 — free-form.** Paste any malicious URL (e.g. Juice Shop's SQL
+   injection in `/rest/products/search`) and project it as a QR too.
+
+Golden rules: every arsenal URL uses the **LAN IP, never `localhost`**
+(`sessionStorage` is per-origin; with the wrong origin the token is missing
+and only `loot=none` arrives), and the Juice Shop/WebGoat stack **never** goes
+through a public tunnel.
+
+## Quick start
+
+**Requirements:** git, Docker, and a phone on the same LAN for scanning.
 
 ```bash
+git clone git@github.com:daniel-baf/quishing-lab.git
+cd quishing-lab
 cp .env.example .env
-# Edit .env: set a long, unique, stable ADMIN_TOKEN.
-make up
-make health
+openssl rand -base64 32   # paste the output as ADMIN_TOKEN in .env
+make up                   # panel + Juice Shop + WebGoat
+make health && make health-practice
 ```
 
-Open the dashboard at `http://localhost:3000/admin` and enter the `ADMIN_TOKEN`
-from `.env`. The token does not change when containers restart, so you will not
-see 401s caused by a fresh random token. If the browser keeps an invalid token,
-the dashboard drops it automatically and asks again.
+Open `http://localhost:3000/admin`, enter the `ADMIN_TOKEN`, and project the
+page. The QR arsenal builds itself from the autodetected LAN IP (force it with
+`LAN_IP=192.168.x.x make up`).
 
-Common commands:
-
-```bash
-make logs            # app logs
-make down            # stops the app, the tunnel and the practice stack
-make tunnel          # starts app + Quick Tunnel and streams its logs
-```
+**Fair script (5–7 min):** QR 1 on screen → a volunteer logs into Juice Shop →
+QR 2 → the loot table lights up with their session → replay finale on the
+projector → defenses talk (QRs hide destinations, session tokens are as good
+as passwords, HttpOnly cookies + short lifetimes + binding mitigate this).
 
 ## Practice stack (intentionally vulnerable)
 
-The QR arsenal in the dashboard targets two deliberately vulnerable training
-apps — the demo goes beyond the QR into XSS, session theft and CSRF. They live
-in a **separate Compose file** and are started independently:
+`make up` starts it together with the panel; it also lives in its own Compose
+file and can be controlled separately:
 
 ```bash
 make practice-up      # Juice Shop + WebGoat
@@ -53,74 +74,29 @@ make logs-practice    # follow their logs
 make practice-down    # stop them
 ```
 
-- **OWASP Juice Shop** — vulnerable online store at `http://localhost:4000`
-  (on the LAN: `http://LAPTOP-IP:4000`). Includes the "Forged Coupon" QR
-  challenge, DOM-XSS in the search box and the session JWT stored in
-  `sessionStorage`, readable from an XSS. Reset = recreate the container:
+- **OWASP Juice Shop** — `http://localhost:4000` (LAN: `http://LAPTOP-IP:4000`).
+  Bait app and XSS/SQLi target. Reset = recreate the container:
   `docker compose -f docker-compose.practice.yml up -d --force-recreate juice-shop`.
-- **OWASP WebGoat** — guided course at `http://localhost:8080/WebGoat`, with its
-  WebWolf companion (a request bin for exfiltration practice) at
-  `http://localhost:9090/WebWolf`. Listens on localhost only.
+- **OWASP WebGoat** — guided lessons at `http://localhost:8080/WebGoat`, with
+  WebWolf (a request bin for exfiltration practice) at
+  `http://localhost:9090/WebWolf`. Localhost only.
 
 > **Never** expose Juice Shop or WebGoat through the Cloudflare Tunnel: they
-> are vulnerable on purpose and anyone with the URL gets in. Keep them on the
-> LAN/VM. If you are not using them in a session: `make practice-down`.
+> are vulnerable on purpose and anyone with the URL gets in. LAN/localhost
+> only. `make practice-down` when idle.
 
-### Extended demo: session theft from a QR
+## Exposing the panel with a Cloudflare Tunnel (optional)
 
-The dashboard includes a **QR arsenal** (below the feed) that shows how a QR can
-also steal a session without asking for credentials:
-
-1. **QR 1 (bait)** points to Juice Shop (`http://LAN-IP:4000/`). The victim
-   registers and logs in. All legitimate.
-2. **QR 2 (theft)** opens Juice Shop's search box with an XSS payload that
-   sends the session JWT to this server's `GET /api/loot`. The dashboard counts
-   executions and stolen sessions, and lists each JWT with the victim's decoded
-   email (click the token to copy it).
-3. **Finale:** in a new Juice Shop tab, run `sessionStorage.setItem('token','…')`
-   with the copied JWT → you are inside the victim's account without knowing
-   their password.
-
-**QR 3 (free-form)** is for your own URLs, e.g. the SQL injection of Juice
-Shop's `/rest/products/search`, which also fits in a QR.
-
-Golden rules: always use the **LAN IP, never `localhost`** (`sessionStorage`
-is per-origin: mix them and the token "does not exist", so `loot=none` arrives);
-Juice Shop never goes through the tunnel; and `Reiniciar` also wipes the loot.
-The LAN IP is autodetected when you run `make up`; force it with
-`LAN_IP=192.168.x.x make up`.
-
-## Exposing it with a Cloudflare Tunnel
+Only the panel needs HTTPS (e.g. if you insist on scanning from outside the
+LAN). The practice stack stays local either way.
 
 ```bash
 make tunnel
 ```
 
-Look in the `make tunnel` logs for the `https://….trycloudflare.com` URL that
-Cloudflare prints. Paste it into the dashboard's **QR del concurso** field and
-hit **Generar QR** (project the QR so people can scan it). The URL changes
-every time the Quick Tunnel is recreated.
-
-The `tunnel` container uses the Compose `tunnel` profile and points internally
-at `app:3000`; you do not need `cloudflared` installed on the laptop. To see
-the URL again:
-
-```bash
-make tunnel-logs
-```
-
-**Quick Tunnels** (`trycloudflare.com`) do not reliably deliver Server-Sent
-Events, so phones keep SSE when available and *also* poll over HTTP every ~2
-seconds for the **REVELAR** and **Reiniciar** commands. You do not need four
-participants: the demo works the same with one person or as many as connect.
-
-## Automatic permission mode
-
-The landing page no longer shows "enable camera/screen" buttons: on form submit
-(or on load if `ENABLE_FAKE_LOGIN=false`) it tries to request both permissions
-automatically. This does **not** remove the browser's native dialogs or turn
-them into invisible consent: if the browser requires a user gesture or the
-person denies, the event shows up as denied on the dashboard.
+Copy the `https://….trycloudflare.com` URL from the logs (`make tunnel-logs`
+brings them back) — the dashboard URL changes every time the Quick Tunnel is
+recreated.
 
 ## Alternative local start
 
@@ -129,100 +105,52 @@ npm install
 npm start
 ```
 
-Uses the same `.env` with the same stable `ADMIN_TOKEN`.
-
-## Suggested script (5–7 min)
-
-1. **Bait (30 s):** QR on screen — "Gana un Kit Hacker". You (or a volunteer who
-   is in on the gag) scans it.
-2. **Interaction (1–2 min):** on the phone, fill in the form (fake data) and
-   enable the camera (the browser shows its permission dialog — that is part of
-   the message).
-3. **Dashboard (1 min):** project the panel: watch `tecleando` (typing),
-   `ENVIÓ CREDENCIALES` (credentials sent) and `PERMISO CONCEDIDO` (permission
-   granted) arrive live.
-4. **Reveal (1 min):** press REVELAR. The phones show "Este QR era una
-   trampa" with each person's own list of leaked data.
-5. **Defenses (2 min):** verify domains, use a password manager, minimal
-   permissions, distrust prizes and urgency. Close with: "this is what we do in
-   cybersecurity."
-
-## Intentional design limits
-
-- **No hidden capture:** the camera is a local preview only; no frame ever
-  leaves the device.
-- **No persisted data:** everything is in memory; `Reiniciar` wipes it all and
-  reloads the phones.
-- Camera/geolocation permissions are **controlled by the browser** — there is no
-  way (nor intent) to bypass the dialog; the moment the dialog appears is the
-  teaching moment.
-- **Cookies:** the landing only reads `document.cookie` on the demo domain,
-  masks the values and shows them in the reveal. `HttpOnly` cookies are **not**
-  visible to JavaScript; that limitation is shown too, because it is part of the
-  lesson.
+Uses the same `.env`. The QR arsenal still needs the practice stack
+(`make practice-up`) and a reachable LAN IP.
 
 ## Project structure
 
 ```
 src/
   server.js                         bootstrap: load config, create app, listen
-  app.js                            Express wiring: parsers, headers, routers, static
+  app.js                            Express wiring: headers, routers, static
   config/environment.js             env vars + LAN IP detection
-  shared/infrastructure/            cross-cutting, in-memory infra
-    activityFeed.js                 bounded event log (dashboard feed)
-    rateLimiter.js                  sliding-window IP rate limiters
-    parsers.js                      User-Agent → browser/OS summaries
-    sseHub.js                       SSE client registry + broadcast helpers
-  sessions/                         participant sessions domain
-    api/routes.js                   /api/session, /api/events, /api/session/* 
-    controllers/sessionController.js
-    models/sessionStore.js          session map, stages, status codes, labels
-    models/publicCommandStore.js    reveal/reset orders (SSE + polling fallback)
-  live/                             real-time channel domain
-    api/routes.js                   /api/live (SSE), /api/mirror, /api/screen
-    controllers/liveController.js
+  shared/infrastructure/rateLimiter.js  sliding-window IP rate limiter
   loot/                             stolen-session trap domain
     api/routes.js                   /api/loot (intentionally unauthenticated)
     controllers/lootController.js
     models/lootStore.js
     services/decodeJwtEmail.js
   admin/                            presenter dashboard domain
-    api/routes.js                   /api/admin/* (token-protected)
+    api/routes.js                   /api/admin/stats, /api/admin/reset (token-protected)
     controllers/adminController.js
     middleware/requireAdminToken.js
   publicConfig/                     non-sensitive settings for the frontend
-    api/routes.js                   /api/config
+    api/routes.js                   /api/config (lanIp, port)
 public/
-  index.html                        mobile landing (contest → camera → reveal)
-  admin.html                        presenter dashboard (counters, cards, feed, QR)
-  styles.css                        shared styles
-docker-compose.yml                  core demo app + tunnel profile
-docker-compose.practice.yml         Juice Shop + WebGoat (vulnerable practice stack)
+  admin.html                        presenter dashboard (counters, QR arsenal, loot)
+  styles.css                        dashboard styles
+docker-compose.yml                  panel app + tunnel profile
+docker-compose.practice.yml         Juice Shop + WebGoat (intentionally vulnerable)
 ```
-
-The API speaks English (`cam: "granted"`, counters like `lootStolen`, stages
-like `revealed`); the frontend translates them into Spanish for display.
 
 ## Fair-day checklist
 
-- [ ] `make up && make health` answers `ok`
-- [ ] (If used) practice stack up via `make practice-up` — Juice Shop on `:4000`,
-      WebGoat on `:8080` — and **never** in the tunnel
-- [ ] Tunnel active with valid HTTPS (the camera requires a secure context)
-- [ ] Tested on Android Chrome **and** iOS Safari
-- [ ] Dashboard token at hand (read it from `.env`, do not share it)
-- [ ] Fake credentials ready to type
-- [ ] After the fair: Ctrl+C and `rm -rf` the project → zero leftovers
+- [ ] `make up` then `make health` and `make health-practice` all green
+- [ ] Dashboard opens at `:3000/admin` with the token from `.env`
+- [ ] QR 1 and QR 2 show LAN URLs (not `localhost`); force with `LAN_IP=…` if not
+- [ ] Tested end-to-end on Android Chrome **and** iOS Safari
+- [ ] Practice apps verified LAN-only, never in the tunnel
+- [ ] After the fair: `make down` → zero leftovers (everything was in memory)
 
 ## Contributing
 
-Improvements are welcome — UX/UI of the landing or dashboard, new QR arsenal
-challenges, teaching material. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-workflow and style guide.
+Improvements are welcome — new QR challenges, better teaching material,
+dashboard UX. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-If you find a security flaw in the lab itself (accidental persistence, secret
-leak, broken isolation), report it privately following
+If you find a security flaw in the panel itself (accidental persistence,
+secret leak, broken isolation), report it privately following
 [SECURITY.md](SECURITY.md). Do not open public issues with vulnerability
 details.

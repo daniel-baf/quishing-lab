@@ -3,8 +3,6 @@ const os = require('os');
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-const ENABLE_FAKE_LOGIN = process.env.ENABLE_FAKE_LOGIN !== 'false';
-const PUBLIC_URL = process.env.PUBLIC_URL || '';
 
 if (!ADMIN_TOKEN) {
   throw new Error('ADMIN_TOKEN is required. Copy .env.example to .env and set a long, random token.');
@@ -27,4 +25,4 @@ function detectLanIp() {
 
 const LAN_IP = process.env.LAN_IP || detectLanIp();
 
-module.exports = { PORT, ADMIN_TOKEN, ENABLE_FAKE_LOGIN, PUBLIC_URL, LAN_IP, detectLanIp };
+module.exports = { PORT, ADMIN_TOKEN, LAN_IP, detectLanIp };

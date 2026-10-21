@@ -2,8 +2,11 @@
 
 PRACTICE_COMPOSE = docker compose -f docker-compose.practice.yml
 
+# Full demo: the QR arsenal panel + the intentionally vulnerable practice
+# stack it attacks (Juice Shop bait + WebGoat). `make up` is all you need.
 up:
 	LAN_IP=$${LAN_IP:-$$(ip route get 1.1.1.1 2>/dev/null | awk '{print $$7; exit}')} docker compose up -d --build
+	$(PRACTICE_COMPOSE) up -d
 
 down:
 	docker compose --profile tunnel down
@@ -15,8 +18,9 @@ logs:
 health:
 	@echo -n "app: "; curl --fail --silent --show-error http://localhost:$${PORT:-3000}/health; echo
 
-# Intentionally vulnerable practice stack (Juice Shop + WebGoat), started
-# separately from the core demo app. LAN/localhost only — never tunnel these.
+# Intentionally vulnerable practice stack (Juice Shop + WebGoat), in its own
+# Compose file so it can be controlled separately. LAN/localhost only — never
+# tunnel these.
 practice-up:
 	$(PRACTICE_COMPOSE) up -d
 

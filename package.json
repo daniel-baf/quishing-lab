@@ -2,7 +2,7 @@
   "name": "quishing-lab",
   "version": "1.0.0",
   "private": true,
-  "description": "Educational quishing (QR phishing) and session-theft awareness demo for university fairs and classrooms",
+  "description": "Educational QR arsenal panel for demonstrating session theft and injection against intentionally vulnerable training apps",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
