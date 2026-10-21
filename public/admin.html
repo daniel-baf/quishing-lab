@@ -161,10 +161,37 @@ $('btnQR3').onclick = () => {
   $('url3').textContent = url;
   renderQr($('qr3'), url);
 };
+// Clipboard helper with fallbacks: navigator.clipboard only exists in secure
+// contexts (HTTPS or localhost), and the panel is often opened over plain
+// HTTP on the LAN IP. Falls back to a hidden textarea + execCommand, and
+// finally to a prompt showing the full value.
+function copyText(text, onDone) {
+  const done = () => { if (onDone) onDone(); };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    return;
+  }
+  fallbackCopy(text, done);
+}
+function fallbackCopy(text, onDone) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    if (onDone) onDone();
+  } catch (e) {
+    window.prompt('Copia manualmente:', text);
+  }
+  document.body.removeChild(textarea);
+}
 $('btnCopy2').onclick = () => {
   const url = $('url2').textContent;
   if (!url) return;
-  navigator.clipboard.writeText(url).then(() => {
+  copyText(url, () => {
     $('btnCopy2').textContent = 'Copiado';
     setTimeout(() => { $('btnCopy2').textContent = 'Copiar URL'; }, 1500);
   });
@@ -173,7 +200,7 @@ $('btnCopy2').onclick = () => {
 $('lootRows').addEventListener('click', event => {
   const target = event.target.closest('.tok');
   if (!target) return;
-  navigator.clipboard.writeText(target.dataset.tok).then(() => { target.textContent = 'copiado'; });
+  copyText(target.dataset.tok, () => { target.textContent = 'copiado'; });
 });
 start();
 </script>
