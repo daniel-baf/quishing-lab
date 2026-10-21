@@ -8,6 +8,9 @@ al cerrar el proceso no queda nada) y se expone temporalmente con Cloudflare Tun
 > ⚠️ Uso responsable: presenta siempre la revelación educativa al final, anuncia que es una
 > demo y borra/reinicia entre sesiones. La credencial que se capture debe ser ficticia
 > (el presentador escribe datos de prueba, p. ej. `hacker@demo.com` / `hunter2`).
+> Lee [SECURITY.md](SECURITY.md) antes de usarla fuera de tu máquina.
+
+> 🤝 ¿Quieres colaborar? La guía de desarrollo y UX/UI está en [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Arranque con Docker (recomendado)
 
@@ -148,3 +151,16 @@ public/admin.html  panel del expositor (contadores, tarjetas dinámicas, feed, Q
 - [ ] Token del panel a la mano (léelo de `.env`, no lo compartas)
 - [ ] Datos ficticios listos para escribir
 - [ ] Después de la feria: Ctrl+C y `rm -rf` del proyecto → cero residuos
+
+## Contribuir
+
+Las mejoras son bienvenidas —UX/UI de la landing o el panel, nuevos retos del
+arsenal QR, docencia. Mira [CONTRIBUTING.md](CONTRIBUTING.md) para el flujo de
+trabajo y la guía de estilo.
+
+## Seguridad
+
+Si encuentras un fallo de seguridad en el propio lab (persistencia accidental,
+fuga de secretos, aislamiento roto), repórtalo de forma privada siguiendo
+[SECURITY.md](SECURITY.md). No abras issues públicos con detalles de
+vulnerabilidades.
