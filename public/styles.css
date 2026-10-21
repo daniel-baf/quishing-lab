@@ -24,6 +24,11 @@ body.phone {
 .ghost { padding: .9rem; border-radius: 12px; background: transparent; border: 1px solid rgba(255,255,255,.3); color: #fff; }
 .link { background: none; border: 0; color: rgba(255,255,255,.6); text-decoration: underline; margin-top: 1rem; }
 .fine { font-size: .7rem; opacity: .45; margin-top: 2rem; }
+.status {
+  margin: .7rem 0 0; padding: .65rem .8rem; border-radius: 10px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+  font-size: .9rem; opacity: .9;
+}
 .row { display: flex; gap: .8rem; margin-top: 1rem; }
 #cam { width: 100%; border-radius: 14px; margin-top: 1rem; background: #000; min-height: 120px; }
 .spinner {
@@ -82,7 +87,6 @@ body.admin { margin: 0; background: #0a0e14; color: #d7e0ea; font-family: ui-mon
 .noframe { margin-top: .8rem; font-size: .78rem; opacity: .4; text-align: center; padding: .8rem; border: 1px dashed #1f2937; border-radius: 8px; }
 /* cebo de compartir pantalla en la landing */
 .share { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid rgba(255,255,255,.12); }
-#btnShare:disabled { opacity: .7; }
 .bottom { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-top: 1.5rem; }
 @media (max-width: 900px) { .bottom { grid-template-columns: 1fr; } }
 .feedbox, .qrbox { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1.2rem; }

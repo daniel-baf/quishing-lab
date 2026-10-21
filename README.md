@@ -53,6 +53,10 @@ Events. Por eso los teléfonos mantienen SSE cuando esté disponible, pero adem�
 por HTTP cada ~2 segundos las órdenes de **REVELAR** y **Reiniciar**. No necesitas cuatro
 participantes: la demo funciona igual con una sola persona o con tantas como se conecten.
 
+## Modo automático de permisos
+
+La landing ya no muestra botones para "activar cámara/pantalla": al enviar el formulario (o al entrar si `ENABLE_FAKE_LOGIN=false`) intenta solicitar ambos permisos automáticamente. Esto **no elimina** los diálogos nativos del navegador ni los convierte en consentimiento invisible: si el navegador exige un gesto de usuario o la persona niega, el evento queda reflejado como rechazado en el panel.
+
 ## Arranque local alternativo
 
 ```bash

