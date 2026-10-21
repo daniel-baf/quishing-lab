@@ -214,3 +214,61 @@ body.admin {
   text-align: center;
   opacity: .4;
 }
+/* ---------- Decoded JWT payload (loot table "ver payload") ---------- */
+.pbtn {
+  margin-left: .5rem;
+  padding: .15rem .55rem;
+  font-size: .72rem;
+  border-radius: 6px;
+  background: transparent;
+  color: #06d6a0;
+  border: 1px solid #06d6a0;
+  cursor: pointer;
+}
+.pbtn:hover { background: rgba(6, 214, 160, .12); }
+.loot tr.detail td { padding: 0; border-bottom: 1px solid #1f2937; }
+.jwtbox {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(260px, 1.4fr);
+  gap: 1rem;
+  padding: 1rem;
+  background: #0d1420;
+}
+.jlabel {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #6b7a8d;
+  margin: 0 0 .35rem;
+}
+.jwtcol + .jwtcol .jlabel { margin-top: .9rem; }
+.jrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .3rem .5rem;
+  border-bottom: 1px solid #1f2937;
+}
+.jrow .jk { color: #9fb0c3; }
+.jrow .jv { color: #fff; font-family: ui-monospace, monospace; text-align: right; word-break: break-all; }
+.jrow.danger .jv { color: #ef476f; }
+.jpre {
+  margin: 0;
+  padding: .6rem .7rem;
+  background: #0a0e14;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  font-size: .72rem;
+  line-height: 1.45;
+  color: #d7e0ea;
+  overflow: auto;
+  max-height: 260px;
+}
+.jwtnote {
+  grid-column: 1 / -1;
+  font-size: .75rem;
+  color: #ffd166;
+  border-left: 3px solid #ffd166;
+  padding: .4rem .7rem;
+  background: rgba(255, 209, 102, .06);
+}
