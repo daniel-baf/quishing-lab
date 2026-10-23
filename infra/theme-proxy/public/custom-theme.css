@@ -1,0 +1,336 @@
+/* Fictitious "Empresa Ficticia" brand layer for the Juice Shop bait.
+   Educational demo only — no real institution is impersonated.
+   Navy/lime brand palette and type; see the tokens on :root below. */
+:root {
+  --color-primary: #101E8E;        /* navy: header, primary buttons, CTAs */
+  --color-primary-deep: #03044E;   /* night blue: campaign banners */
+  --color-accent: #94D500;         /* lime: logo, chat tab, active dots */
+  --color-price: #E60707;          /* red: sale prices only */
+  --color-text-strong: #000000;    /* product titles, base body */
+  --color-text: #333333;           /* navigation, UI text */
+  --color-text-muted: #B5B5B5;     /* breadcrumbs, tertiary text */
+  --color-text-on-primary: #FFFFFF;
+  --color-surface: #FFFFFF;        /* general background */
+  --color-surface-tint: #F1F2FF;   /* announcement bar (pale lavender) */
+  --color-surface-alt: #F2F6FC;    /* bluish secondary backgrounds */
+  --color-surface-gray: #F1F1F1;
+  --color-border: #CCCCCC;
+  --color-border-light: #E0E0E0;
+  --color-border-strong: #707070;  /* card brand + rating text */
+  --color-border-input: #767676;
+  --color-border-primary-soft: rgba(16, 30, 142, 0.1);
+  --color-star: #F5B301;           /* rating star */
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --gradient-new: linear-gradient(to right, #A237FF, #1435FF);
+  --gradient-sale: linear-gradient(to right, #358DFF, #002181, #002181);
+  --font-sans: 'Helvetica Neue LT W05', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --radius-sm: 5px;
+  --radius-tab: 7px;
+  --radius-pill: 24px;
+}
+
+/* ============================================================
+   FORCE A LIGHT THEME APP-WIDE (DESIGN: no dark mode)
+   Juice Shop's default theme (.bluegrey-lightgreen-theme) is an Angular
+   Material M3 *dark* theme. Two different mechanisms paint things dark:
+     1. M3 system tokens (--mat-sys-*) — used by the page, menus, lists, etc.
+     2. Per-component MDC tokens (--mdc-*-container-color) — used by cards,
+        dialogs, text fields, chips… set to dark *literals* by the theme, so
+        overriding --mat-sys-* alone does NOT fix them.
+   We override BOTH families to a coherent light scheme, and as a backstop
+   also force white backgrounds + dark text directly on the Material surfaces.
+   Scoped to the theme class AND the CDK overlay container (where Angular
+   appends dialogs/menus), so nothing escapes. Brand colours (navy header and
+   buttons) are re-asserted afterwards and win by specificity. */
+[class*="-theme"],
+.cdk-overlay-container,
+.mat-mdc-dialog-container,
+.mat-mdc-menu-panel {
+  /* --- M3 system tokens --- */
+  --mat-sys-background: #FFFFFF !important;
+  --mat-sys-on-background: #1a1b1f !important;
+  --mat-sys-surface: #FFFFFF !important;
+  --mat-sys-surface-dim: #dbd9dd !important;
+  --mat-sys-surface-bright: #FFFFFF !important;
+  --mat-sys-surface-container-lowest: #FFFFFF !important;
+  --mat-sys-surface-container-low: #f4f3f6 !important;
+  --mat-sys-surface-container: #efedf0 !important;
+  --mat-sys-surface-container-high: #e9e7eb !important;
+  --mat-sys-surface-container-highest: #e3e2e6 !important;
+  --mat-sys-surface-variant: #e0e2ec !important;
+  --mat-sys-on-surface: #1a1b1f !important;
+  --mat-sys-on-surface-variant: #44474e !important;
+  --mat-sys-outline: #74777f !important;
+  --mat-sys-outline-variant: #c4c6d0 !important;
+  --mat-sys-inverse-surface: #2f3033 !important;
+  --mat-sys-inverse-on-surface: #f2f0f4 !important;
+  --mat-sys-error: #ba1a1a !important;
+  --mat-sys-on-error: #ffffff !important;
+  --mat-sys-error-container: #ffdad6 !important;
+  --mat-sys-on-error-container: #410002 !important;
+  --mat-sys-primary: #101E8E !important;
+  --mat-sys-on-primary: #FFFFFF !important;
+  /* --- Per-component MDC tokens (the ones that stayed dark) --- */
+  --mdc-elevated-card-container-color: #FFFFFF !important;
+  --mdc-outlined-card-container-color: #FFFFFF !important;
+  --mdc-dialog-container-color: #FFFFFF !important;
+  --mdc-filled-text-field-container-color: #F1F1F1 !important;
+  --mdc-outlined-text-field-container-color: #FFFFFF !important;
+  --mdc-chip-elevated-container-color: #e3e2e6 !important;
+  --mdc-chip-label-text-color: #1a1b1f !important;
+  --mat-toolbar-container-background-color: #FFFFFF !important;
+  --mat-toolbar-container-text-color: #1a1b1f !important;
+}
+
+html, body {
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Backstop: force the app shell and every Material surface to white. */
+app-root,
+.mat-drawer-container,
+.mat-drawer-content,
+.mat-sidenav-container,
+.mat-sidenav-content,
+.mat-app-background,
+[class*="-theme"] .mat-mdc-card,
+[class*="-theme"] .mdc-card,
+[class*="-theme"] .mat-mdc-dialog-surface,
+[class*="-theme"] .mdc-dialog__surface,
+[class*="-theme"] .mat-mdc-menu-panel,
+[class*="-theme"] .mat-mdc-select-panel,
+[class*="-theme"] .mat-mdc-autocomplete-panel,
+[class*="-theme"] .mat-mdc-table,
+[class*="-theme"] .mat-mdc-header-row,
+[class*="-theme"] .mat-mdc-row,
+[class*="-theme"] .mat-mdc-paginator,
+[class*="-theme"] .mat-expansion-panel,
+[class*="-theme"] .mat-mdc-tab-body-content,
+[class*="-theme"] .mat-mdc-list,
+[class*="-theme"] .mat-mdc-list-item,
+.cdk-overlay-container .mat-mdc-card,
+.cdk-overlay-container .mdc-card {
+  background-color: #FFFFFF !important;
+}
+
+/* Dark text on content/typography elements (NOT buttons/icons, so brand
+   buttons keep their white labels). Scoped under the theme class so it wins
+   over the dark theme's own token-driven colours. */
+[class*="-theme"] h1, [class*="-theme"] h2, [class*="-theme"] h3,
+[class*="-theme"] h4, [class*="-theme"] h5, [class*="-theme"] h6,
+[class*="-theme"] p, [class*="-theme"] li, [class*="-theme"] label,
+[class*="-theme"] .mat-mdc-card-title, [class*="-theme"] .mat-mdc-card-subtitle,
+[class*="-theme"] .mat-mdc-card-content, [class*="-theme"] .mdc-card,
+[class*="-theme"] .mat-mdc-dialog-title, [class*="-theme"] .mat-mdc-dialog-content,
+[class*="-theme"] .mdc-list-item__primary-text,
+[class*="-theme"] .mdc-list-item__secondary-text,
+[class*="-theme"] .mat-mdc-cell, [class*="-theme"] .mat-mdc-header-cell,
+[class*="-theme"] .mat-expansion-panel-header-title,
+[class*="-theme"] .mat-expansion-panel-content,
+.cdk-overlay-container .mat-mdc-dialog-content,
+.cdk-overlay-container .mdc-list-item__primary-text {
+  color: #1a1b1f !important;
+}
+
+/* Main navigation bar. In this Juice Shop build it is NOT color="primary";
+   it is <mat-toolbar class="mat-elevation-z6 navbar-toolbar">, whose default
+   background would now resolve to the light surface token. Target it by its
+   real class so the header stays brand navy with white text/icons. Other
+   toolbars (e.g. the "Todos los Productos" bar) keep the light surface. */
+mat-toolbar.navbar-toolbar,
+.navbar-toolbar {
+  background: var(--color-primary) !important;
+  color: var(--color-text-on-primary) !important;
+}
+.navbar-toolbar a,
+.navbar-toolbar span,
+.navbar-toolbar button,
+.navbar-toolbar .mat-icon,
+.navbar-toolbar .mdc-button__label {
+  color: var(--color-text-on-primary) !important;
+}
+
+/* Primary buttons: navy pills with uppercase white text */
+.mat-raised-button.mat-primary,
+.mat-flat-button.mat-primary,
+.mat-stroked-button.mat-primary,
+button[color="primary"] {
+  background: var(--color-primary) !important;
+  color: var(--color-text-on-primary) !important;
+  border-radius: var(--radius-pill) !important;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  font-weight: 700;
+  /* Keep long labels (e.g. "AGREGAR A CARRITO DE COMPRAS") inside the card
+     on narrow desktop grid columns instead of overflowing. */
+  max-width: 100%;
+  white-space: normal !important;
+  line-height: 1.2;
+  height: auto !important;
+  min-height: 40px;
+  padding: 8px 16px !important;
+}
+
+/* Material wraps the label in this span, which defaults to nowrap. */
+.mat-raised-button.mat-primary .mat-button-wrapper,
+.mat-flat-button.mat-primary .mat-button-wrapper,
+.mat-stroked-button.mat-primary .mat-button-wrapper,
+button[color="primary"] .mat-button-wrapper {
+  white-space: normal !important;
+  overflow-wrap: break-word;
+}
+
+/* Search field: subtle rounded corners */
+.mat-form-field,
+input[type="text"] {
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Product grid cards (DESIGN: product-card) ------------------------ */
+/* Juice Shop renders each product as a <mat-card> containing a .btn-basket;
+   scope to those so login/dialog cards keep their own look.
+   White card, 1px light-gray border, 8px radius, no shadow, hover border. */
+mat-card:has(.btn-basket) {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  padding: 4px !important;
+}
+mat-card:has(.btn-basket):hover {
+  border-color: var(--color-border) !important;
+}
+
+/* Product title: black, small, clamped to two lines */
+.item-name {
+  color: var(--color-text-strong) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Price at the foot: black and bold by default; red only on sale. */
+.item-price {
+  color: var(--color-text-strong) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+.item-price.sale,
+.price-sale {
+  color: var(--color-price) !important;
+}
+.price-regular {
+  color: var(--color-text-muted) !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+}
+
+/* Rating stars */
+.mat-star-rating .mat-icon,
+.rating .mat-icon {
+  color: var(--color-star) !important;
+}
+
+/* Add-to-cart: keep Juice Shop's native button form (icon + text); only
+   recolor it to the brand navy for palette consistency. */
+button.btn-basket {
+  background: var(--color-primary) !important;
+  color: var(--color-text-on-primary) !important;
+}
+/* Smaller label so "Agregar a Carrito de Compras" takes less room. */
+button.btn-basket .mdc-button__label {
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  letter-spacing: normal !important;
+}
+
+/* Hide the Juice Shop logo images; the faux logo is injected by JS. */
+img[src*="JuiceShop"],
+img[alt*="Juice Shop"],
+.logo img {
+  display: none !important;
+}
+
+.theme-faux-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-left: 12px;
+}
+
+.theme-faux-logo::before {
+  content: "";
+  width: 26px;
+  height: 26px;
+  background: var(--color-accent);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  display: inline-block;
+}
+
+/* Login / dialog cards keep a soft brand shadow (not product cards). */
+.mat-dialog-container .mat-card,
+.login-form .mat-card,
+app-login .mat-card {
+  border-radius: 10px !important;
+  box-shadow: 0 2px 12px var(--color-border-primary-soft) !important;
+}
+
+/* Dialog text (e.g. the product-details description, a bare <div> with no
+   class): force dark so it reads on the white dialog. Set on the container so
+   it inherits; buttons/icons keep their own colours. */
+.mat-mdc-dialog-container,
+.mat-mdc-dialog-container .mat-mdc-dialog-content,
+.mat-mdc-dialog-container div:not(.mdc-button__label),
+.mat-mdc-dialog-container p,
+.mat-mdc-dialog-container span:not(.mdc-button__label) {
+  color: #1a1b1f !important;
+}
+
+/* ---- Server-rendered /profile page (NOT the Angular SPA) ----------------
+   It ships its own dark inline styles (body #303030, article #3e3e3e, a teal
+   #4f6f7a header) with inline attributes. Override to the brand light scheme,
+   scoped to elements unique to that page (#card, .profile-field, the profile
+   header) so the SPA is untouched. */
+body:has(#card) {
+  background: #FFFFFF !important;
+  color: #1a1b1f !important;
+}
+#card {
+  background: #FFFFFF !important;
+  color: #1a1b1f !important;
+  border: 1px solid var(--color-border-light) !important;
+  box-shadow: 0 2px 12px var(--color-border-primary-soft) !important;
+}
+#card h5,
+#card p,
+#card a,
+#card .textOnLine,
+#card .profile-field label {
+  color: #1a1b1f !important;
+}
+header:has(.brand),
+header:has(.app-title) {
+  background: var(--color-primary) !important;
+}
+#card .profile-field input {
+  color: #1a1b1f !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--color-border-input) !important;
+}
+#card .profile-field input::placeholder {
+  color: var(--color-border-input) !important;
+}
+button.fill {
+  background-color: var(--color-primary) !important;
+  color: #FFFFFF !important;
+}
