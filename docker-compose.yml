@@ -26,3 +26,18 @@ services:
       app:
         condition: service_healthy
     restart: unless-stopped
+
+  # Quick Tunnel for the "store" (theme-proxy → Juice Shop), for demos where
+  # the victim's phone is NOT on the LAN. Deliberate exception to the old
+  # LAN-only rule, documented in SECURITY.md: the store is intentionally
+  # vulnerable and anyone with the URL gets in — use fake accounts and tear
+  # the tunnel down after the demo (`make down`).
+  # The store lives in docker-compose.practice.yml (its own network), so this
+  # tunnel reaches it through the host's published port 4000.
+  tunnel-store:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://host.docker.internal:4000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

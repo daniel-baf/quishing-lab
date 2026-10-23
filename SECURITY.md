@@ -17,11 +17,14 @@ scans a QR knowing it is a security exercise.
   explicit consent. Unauthorized attacks are illegal in most jurisdictions,
   even if "it is just a demo".
 - Accounts used in the practice apps must be fake.
-- The practice apps (OWASP Juice Shop, WebGoat) are vulnerable **on purpose**:
-  never expose them through the Cloudflare Tunnel or on a public IP.
-  LAN/localhost only — they live in `docker-compose.practice.yml`, and
-  `make practice-down` stops them when idle. The panel itself is the only
-  component that may ever go through the tunnel.
+- The practice apps (OWASP Juice Shop, WebGoat) are vulnerable **on purpose**.
+  WebGoat stays localhost-only, always. The Juice Shop "store" is exposed
+  through a second Cloudflare Quick Tunnel by **deliberate decision** (added
+  for demos where participants are not on the LAN): anyone on the Internet
+  with the URL gets in. This is acceptable only because it runs in controlled
+  environments with fake accounts and nothing valuable inside — keep it that
+  way, and tear the tunnels down right after the demo (`make down`). Never
+  point the store tunnel at anything real, and `make practice-down` when idle.
 
 ## Defensive design of the panel itself (intentional choices)
 

