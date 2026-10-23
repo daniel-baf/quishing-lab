@@ -22,8 +22,10 @@ only; nothing survives once the process stops).
 
 ## What it demonstrates
 
-1. **QR 1 — bait (Juice Shop).** The participant scans it, registers and logs
-   in on the intentionally vulnerable OWASP Juice Shop. All legitimate.
+1. **QR 1 — bait (Empresa Ficticia store).** The participant scans it,
+   registers and logs in on the intentionally vulnerable OWASP Juice Shop,
+   which the theme proxy reskins as the fictitious "Empresa Ficticia" store so
+   it looks like a legitimate shop. All legitimate.
 2. **QR 2 — session theft (XSS).** With the session active, the QR opens Juice
    Shop's search box with a stored-DOM-XSS payload that reads the session JWT
    from `sessionStorage` and exfiltrates it to this panel's `GET /api/loot`.
@@ -78,8 +80,11 @@ make logs-practice    # follow their logs
 make practice-down    # stop them
 ```
 
-- **OWASP Juice Shop** — `http://localhost:4000` (LAN: `http://LAPTOP-IP:4000`).
-  Bait app and XSS/SQLi target. Reset = recreate the container:
+- **OWASP Juice Shop** — served at `http://localhost:4000` (LAN:
+  `http://LAPTOP-IP:4000`) through the `theme-proxy` (nginx), which reskins it
+  as the fictitious "Empresa Ficticia" store; Juice Shop itself is no longer
+  published to the host (expose-only, reachable only via the proxy). Bait app
+  and XSS/SQLi target. Reset = recreate the container:
   `docker compose -f docker-compose.practice.yml up -d --force-recreate juice-shop`.
 - **OWASP WebGoat** — guided lessons at `http://localhost:8080/WebGoat`, with
   WebWolf (a request bin for exfiltration practice) at
@@ -135,7 +140,12 @@ public/
   admin.html                        presenter dashboard (counters, QR arsenal, loot)
   styles.css                        dashboard styles
 docker-compose.yml                  panel app + tunnel profile
-docker-compose.practice.yml         Juice Shop + WebGoat (intentionally vulnerable)
+docker-compose.practice.yml         theme proxy + Juice Shop + WebGoat (intentionally vulnerable)
+infra/
+  theme-proxy/
+    nginx.conf                      reverse proxy for Juice Shop + theme injection
+    public/custom-theme.css         Empresa Ficticia brand layer + light theme
+    public/custom-theme.js          rename + faux logo + quetzal (Q) prices
 ```
 
 ## Fair-day checklist
