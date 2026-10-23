@@ -41,10 +41,10 @@ only; nothing survives once the process stops).
 4. **QR 3 — free-form.** Paste any malicious URL (e.g. Juice Shop's SQL
    injection in `/rest/products/search`) and project it as a QR too.
 
-Golden rules: every arsenal URL uses the **LAN IP, never `localhost`**
-(`sessionStorage` is per-origin; with the wrong origin the token is missing
-and only `loot=none` arrives), and the Juice Shop/WebGoat stack **never** goes
-through a public tunnel.
+Golden rules: every arsenal URL uses the **LAN IP, never `localhost`** — or
+the store's tunnel URL when demoing off-LAN (`sessionStorage` is per-origin;
+with the wrong origin the token is missing and only `loot=none` arrives). QR 1
+and QR 2 must always share the same store origin.
 
 ## Quick start
 
@@ -90,22 +90,38 @@ make practice-down    # stop them
   WebWolf (a request bin for exfiltration practice) at
   `http://localhost:9090/WebWolf`. Localhost only.
 
-> **Never** expose Juice Shop or WebGoat through the Cloudflare Tunnel: they
-> are vulnerable on purpose and anyone with the URL gets in. LAN/localhost
-> only. `make practice-down` when idle.
+> WebGoat stays LAN/localhost-only, always. The Juice Shop "store" may be
+> exposed through its own Quick Tunnel (`make tunnel`) for off-LAN demos — a
+> deliberate, documented exception (see [SECURITY.md](SECURITY.md)). Fake
+> accounts only, and `make down` when idle.
 
-## Exposing the panel with a Cloudflare Tunnel (optional)
+## Exposing the panel and the store with Cloudflare Tunnels (optional)
 
-Only the panel needs HTTPS (e.g. if you insist on scanning from outside the
-LAN). The practice stack stays local either way.
+Use this when participants are **not** on your LAN. `make tunnel` starts two
+Quick Tunnels (and the practice stack, since the store tunnel needs it):
 
 ```bash
 make tunnel
+make tunnel-url   # prints both URLs: "panel:" and "tienda:"
 ```
 
-Copy the `https://….trycloudflare.com` URL from the logs (`make tunnel-logs`
-brings them back) — the dashboard URL changes every time the Quick Tunnel is
-recreated.
+- **panel** — this dashboard (port 3000).
+- **tienda** — the Juice Shop "store" (port 4000).
+
+> ⚠️ The store is intentionally vulnerable: anyone with the `tienda` URL gets
+> in. This exposure is a deliberate decision for off-LAN demos (see
+> [SECURITY.md](SECURITY.md)) — fake accounts only, and `make down` right
+> after the demo. WebGoat is never tunneled.
+
+Paste both URLs into the two inputs at the top of the dashboard
+(**"URL de la tienda"** and **"URL del panel"**); the QRs and the payload
+regenerate with them. QR 1 and QR 2 always share the store URL because
+`sessionStorage` is per-origin — the session saved by QR 1's login is only
+readable from QR 2's page if both use the same origin. Leave an input empty to
+fall back to its LAN-IP default.
+
+Copy the `https://….trycloudflare.com` URLs from the logs (`make tunnel-logs`
+brings them back) — they change every time the Quick Tunnels are recreated.
 
 ## Alternative local start
 
@@ -139,7 +155,7 @@ src/
 public/
   admin.html                        presenter dashboard (counters, QR arsenal, loot)
   styles.css                        dashboard styles
-docker-compose.yml                  panel app + tunnel profile
+docker-compose.yml                  panel app + tunnel profile (panel + store tunnels)
 docker-compose.practice.yml         theme proxy + Juice Shop + WebGoat (intentionally vulnerable)
 infra/
   theme-proxy/
@@ -154,7 +170,8 @@ infra/
 - [ ] Dashboard opens at `:3000/admin` with the token from `.env`
 - [ ] QR 1 and QR 2 show LAN URLs (not `localhost`); force with `LAN_IP=…` if not
 - [ ] Tested end-to-end on Android Chrome **and** iOS Safari
-- [ ] Practice apps verified LAN-only, never in the tunnel
+- [ ] Off-LAN demo? `make tunnel` + both tunnel URLs pasted into the dashboard inputs
+- [ ] WebGoat verified localhost-only (only the store may be tunneled, and only for off-LAN demos)
 - [ ] After the fair: `make down` → zero leftovers (everything was in memory)
 
 ## Contributing

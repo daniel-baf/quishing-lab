@@ -2,9 +2,11 @@
 # dashboard (theme proxy + bait app + XSS session-theft target + guided
 # lessons).
 #
-# NEVER expose these services to the Internet: they are intentionally
-# vulnerable and anyone with the URL gets in. LAN/localhost only (see
-# SECURITY.md).
+# WebGoat is NEVER exposed to the Internet (localhost bindings only). The
+# Juice Shop "store" (theme-proxy on port 4000) MAY be exposed through the
+# `tunnel-store` Quick Tunnel in docker-compose.yml for off-LAN demos — a
+# deliberate exception documented in SECURITY.md: fake accounts only, tear it
+# down after the demo.
 
 name: quishing-lab-practice
 

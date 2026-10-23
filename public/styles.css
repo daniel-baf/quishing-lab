@@ -165,6 +165,31 @@ body.admin {
   margin-top: 1.5rem;
 }
 
+.basebar {
+  grid-column: 1 / -1;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+}
+
+.basebar label {
+  display: block;
+  font-size: .85rem;
+  margin-bottom: .5rem;
+}
+
+.basebar input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .8rem;
+  margin-bottom: .9rem;
+  border-radius: 8px;
+  border: 1px solid #2a3646;
+  background: #0d1420;
+  color: #fff;
+}
+
 .urlview {
   margin-top: .6rem;
   font-size: .68rem;
