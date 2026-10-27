@@ -152,6 +152,47 @@ mat-toolbar.navbar-toolbar,
   color: var(--color-text-on-primary) !important;
 }
 
+/* Side navigation drawer. In this build the sliding panel is .mat-drawer /
+   .mat-sidenav with an inner .mat-drawer-inner-container (the sidenav
+   container/content wrappers are .mat-drawer-container / .mat-drawer-content).
+   Its background resolves from --mat-sys-surface, but the panel can sit outside
+   the element that carries the theme class, so the token override doesn't reach
+   it and it stays on the old dark surface. Force the brand light scheme
+   directly on the panel: white background, dark text, navy icons. */
+.mat-drawer,
+.mat-sidenav,
+.mat-drawer-inner-container {
+  background-color: #FFFFFF !important;
+  color: #1a1b1f !important;
+}
+.mat-drawer a, .mat-sidenav a,
+.mat-drawer span:not(.theme-faux-logo), .mat-sidenav span:not(.theme-faux-logo),
+.mat-drawer p, .mat-sidenav p,
+.mat-drawer .mat-mdc-list-item, .mat-sidenav .mat-mdc-list-item,
+.mat-drawer .mdc-list-item__primary-text,
+.mat-sidenav .mdc-list-item__primary-text {
+  color: #1a1b1f !important;
+}
+.mat-drawer .mat-icon, .mat-sidenav .mat-icon,
+.mat-drawer mat-icon, .mat-sidenav mat-icon {
+  color: var(--color-primary) !important;
+}
+
+/* Sidenav header bar (<mat-toolbar class="mat-toolbar-multiple-rows"> inside
+   the drawer, holding the faux logo + an <h2>). It kept the old dark toolbar
+   palette; paint it brand navy to match the main header. Scoped to the drawer
+   so content toolbars (e.g. "Todos los Productos") stay light. The faux logo
+   keeps its lime colour; headings go white. */
+.mat-drawer mat-toolbar, .mat-sidenav mat-toolbar,
+.mat-drawer .mat-toolbar, .mat-sidenav .mat-toolbar {
+  background: var(--color-primary) !important;
+  color: var(--color-text-on-primary) !important;
+}
+.mat-drawer mat-toolbar h1, .mat-drawer mat-toolbar h2, .mat-drawer mat-toolbar h3,
+.mat-sidenav mat-toolbar h1, .mat-sidenav mat-toolbar h2, .mat-sidenav mat-toolbar h3 {
+  color: var(--color-text-on-primary) !important;
+}
+
 /* Primary buttons: navy pills with uppercase white text */
 .mat-raised-button.mat-primary,
 .mat-flat-button.mat-primary,
@@ -249,9 +290,12 @@ button.btn-basket .mdc-button__label {
   letter-spacing: normal !important;
 }
 
-/* Hide the Juice Shop logo images; the faux logo is injected by JS. */
+/* Hide the Juice Shop brand logo; the faux logo is injected by JS. Match by
+   filename only (JuiceShop_Logo.png). Matching alt text would also hit product
+   thumbnails whose name contains "Juice Shop" — hiding the sharp <img> and
+   leaving only the blurred .image-container backdrop, so those cards looked
+   out of focus. */
 img[src*="JuiceShop"],
-img[alt*="Juice Shop"],
 .logo img {
   display: none !important;
 }
@@ -330,7 +374,65 @@ header:has(.app-title) {
 #card .profile-field input::placeholder {
   color: var(--color-border-input) !important;
 }
+/* File picker (#picture): the native control reads as plain text, so it is not
+   obvious it must be clicked. Style its selector button as a navy brand pill so
+   it clearly looks tappable; the input itself becomes a light bordered field. */
+/* The "File Upload:" caption above the control. */
+#card .profile-field label[for="picture"] {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #1a1b1f !important;
+}
+/* Styling the native file button (::file-selector-button) was unreliable across
+   browsers, so custom-theme.js hides this input and injects our own button
+   (.ef-file-trigger). Hide it accessibly — it stays in the form and submits.
+   Two ids + a class so it beats the #card .profile-field input rule above. */
+#card #picture.ef-file-native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  background: transparent !important;
+}
+/* Our own trigger button: navy brand pill, clearly tappable. Sized to match
+   the other buttons in the view (40px tall) and without uppercasing. */
+.ef-file-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 18px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+.ef-file-trigger:hover {
+  background: var(--color-primary-deep);
+}
+.ef-file-name {
+  margin-left: 10px;
+  font-size: 13px;
+  color: var(--color-text);
+  vertical-align: middle;
+}
 button.fill {
   background-color: var(--color-primary) !important;
   color: #FFFFFF !important;
+}
+/* "Upload Picture" stays disabled until a file is chosen (see custom-theme.js);
+   show it as such so it's clear why it isn't clickable yet. */
+button.fill:disabled {
+  opacity: .5 !important;
+  cursor: not-allowed !important;
 }
