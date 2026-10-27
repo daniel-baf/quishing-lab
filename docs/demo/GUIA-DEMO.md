@@ -129,11 +129,14 @@ real login does (sets `localStorage` **and** the `token` cookie).
 ## Resetting between demos
 
 ```bash
-# the panel's "Reiniciar" button clears the in-memory loot, or:
+# the panel's "Reiniciar" button clears the loot, or:
 make down && make up
 ```
 
-The loot store is **in memory only**: restarting the container wipes everything.
+The loot store is **memory-only by default**. With the Docker Compose
+deployment (`DATABASE_URL` set) it persists in Postgres and survives
+restarts; `Reiniciar` still wipes it, and `docker compose down -v`
+removes the database volume entirely.
 
 ## Screenshots
 

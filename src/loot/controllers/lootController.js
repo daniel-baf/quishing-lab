@@ -5,9 +5,10 @@ const { LOOT_RATE_LIMITER } = require('../../shared/infrastructure/rateLimiter')
 
 // Loot from the QR arsenal: the XSS injected into Juice Shop exfiltrates the
 // session JWT here. This trap endpoint intentionally has NO auth — the victim
-// browser has no session with this app and cannot send a token. It stays
-// ephemeral like everything else: memory only, rate limited, capped.
-function collectLoot(req, res) {
+// browser has no session with this app and cannot send a token. Loot is rate
+// limited and persisted through the loot store (Postgres when DATABASE_URL is
+// set, memory otherwise).
+async function collectLoot(req, res) {
   const rawToken = String(req.query.loot || '').slice(0, 2000);
   const stolen = rawToken !== '' && rawToken !== 'none';
   const entry = {
@@ -24,7 +25,7 @@ function collectLoot(req, res) {
     entry.email = decodeJwtEmail(rawToken);
     entry.bid = decodeJwtBid(rawToken);
   }
-  lootStore.addLoot(entry);
+  await lootStore.addLoot(entry);
   // The exfiltration fetch runs with mode:'no-cors' from the victim's browser;
   // the wildcard header keeps the request from being flagged as an error there.
   res.setHeader('Access-Control-Allow-Origin', '*');

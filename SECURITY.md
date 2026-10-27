@@ -28,8 +28,11 @@ scans a QR knowing it is a security exercise.
 
 ## Defensive design of the panel itself (intentional choices)
 
-- **Memory-only state:** when the process stops nothing remains; the dashboard
-  `Reiniciar` wipes the loot mid-demo. Do not add persistence.
+- **Loot storage:** by default the loot is memory-only (when the process stops
+  nothing remains) and the dashboard `Reiniciar` wipes it mid-demo. When
+  `DATABASE_URL` is set (the Docker Compose/VPS deployment) the loot persists
+  in Postgres until `Reiniciar` or a `down -v`. Persistence of *stolen
+  training tokens* is a deliberate, opt-in lab feature, not a vulnerability.
 - **Unauthenticated trap endpoint (`/api/loot`)**: intentional — the victim's
   browser has no session with this app and cannot send a token. It stays
   ephemeral, rate-limited and capped. Do not "fix" it by adding login; it is
@@ -39,9 +42,10 @@ scans a QR knowing it is a security exercise.
 
 ## Reporting a vulnerability
 
-If you find a security flaw in the panel itself — e.g. something persists
-after a restart, a secret could leak, or the isolation described above is
-broken — **do not open a public issue with details**:
+If you find a security flaw in the panel itself — e.g. state *unintentionally*
+persists after a restart (beyond the opt-in Postgres loot store), a secret
+could leak, or the isolation described above is broken — **do not open a
+public issue with details**:
 
 1. Open a **private Security Advisory** on GitHub: *Repository → Security →
    Advisories → New draft advisory*.

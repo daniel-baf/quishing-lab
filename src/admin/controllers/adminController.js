@@ -1,12 +1,12 @@
 const lootStore = require('../../loot/models/lootStore');
 
-function getDashboardStats(req, res) {
-  const counters = lootStore.lootCounters();
-  res.json({ counters, loots: lootStore.recentLoots(50) });
+async function getDashboardStats(req, res) {
+  const counters = await lootStore.lootCounters();
+  res.json({ counters, loots: await lootStore.recentLoots(50) });
 }
 
-function resetDemo(req, res) {
-  lootStore.clearLoots();
+async function resetDemo(req, res) {
+  await lootStore.clearLoots();
   res.json({ ok: true });
 }
 

@@ -8,6 +8,10 @@ services:
       # the Docker network); the Makefile detects it on the host and passes
       # it in here.
       - LAN_IP=${LAN_IP:-}
+      # Points at the db service below; override in .env if you use an
+      # external database. Unset/empty keeps the loot in memory only.
+      # The password lives in .env (see .env.example), not in this file.
+      - DATABASE_URL=${DATABASE_URL:-}
     ports:
       - "${PORT:-3000}:3000"
     healthcheck:
@@ -16,6 +20,27 @@ services:
       timeout: 3s
       retries: 12
       start_period: 5s
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    # Reads POSTGRES_PASSWORD from .env (see .env.example); it is never
+    # stored in this file.
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: quishing
+      POSTGRES_DB: quishing
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quishing -d quishing"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     restart: unless-stopped
 
   tunnel:
@@ -41,3 +66,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+volumes:
+  pgdata:
