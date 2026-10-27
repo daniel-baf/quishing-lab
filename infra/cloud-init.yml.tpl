@@ -23,7 +23,8 @@ write_files:
       ADMIN_TOKEN=${admin_token}
       PORT=3000
       LAN_IP=${lan_ip}
-      # DATABASE_URL comes from docker-compose.yml (db service) by default.
+      POSTGRES_PASSWORD=${postgres_password}
+      DATABASE_URL=postgres://quishing:${postgres_password}@db:5432/quishing
       EOF
       cd quishing-lab
       docker compose up -d --build

@@ -23,6 +23,12 @@ resource "random_password" "admin_token" {
   special = false
 }
 
+# Postgres password for the lab db (internal Docker network only).
+resource "random_password" "postgres" {
+  length  = 32
+  special = false
+}
+
 # Static IP the whole setup is wired to (QR arsenal URLs point at it). It is
 # reserved even while the VM is stopped; releasing it happens on destroy.
 resource "google_compute_address" "static" {
@@ -52,9 +58,10 @@ resource "google_compute_instance" "vm" {
 
   metadata = {
     user-data = templatefile("${path.module}/cloud-init.yml.tpl", {
-      repo_url    = var.repo_url
-      admin_token = random_password.admin_token.result
-      lan_ip      = google_compute_address.static.address
+      repo_url          = var.repo_url
+      admin_token       = random_password.admin_token.result
+      postgres_password = random_password.postgres.result
+      lan_ip            = google_compute_address.static.address
     })
   }
 

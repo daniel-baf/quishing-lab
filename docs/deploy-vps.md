@@ -41,9 +41,10 @@ cp .env.example .env
 openssl rand -hex 32   # pega el resultado como ADMIN_TOKEN en .env
 ```
 
-En `.env` deja `DATABASE_URL` **comentado**: el `docker-compose.yml` ya
-inyecta por defecto `postgres://quishing:quishing@db:5432/quishing` hacia el
-servicio `db`.
+En `.env` genera también una contraseña para Postgres
+(`openssl rand -hex 32` de nuevo) y ponla en `POSTGRES_PASSWORD`, y descomenta
+`DATABASE_URL` con esa misma contraseña — apunta al servicio `db` interno:
+`postgres://quishing:<tu-password>@db:5432/quishing`.
 
 ```bash
 docker compose up -d --build
@@ -56,7 +57,7 @@ curl http://localhost:3000/health
 # panel: http://<IP-VPS>:3000/admin?token=<ADMIN_TOKEN>
 ```
 
-> Nota: el usuario/password de Postgres (`quishing`/`quishing`) solo viven en
+> Nota: el usuario de Postgres (`quishing`) y su contraseña solo viven en
 > la red interna de Docker; el puerto 5432 no se publica al host.
 
 ## 5. Persistencia
