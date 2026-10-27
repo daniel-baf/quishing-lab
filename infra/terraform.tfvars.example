@@ -1,0 +1,14 @@
+# GCP project id — required.
+# project = "my-gcp-project"
+
+# region  = "us-central1"   # us regions keep e2-micro free-tier eligible
+# zone    = "us-central1-a"
+# machine_type = "e2-small"   # 2 GB default; e2-medium (4 GB) still < $2 for a
+                              # 2-day practice on $20 of credits
+
+# repo_url = "https://github.com/daniel-baf/quishing-lab.git"
+
+# vm_running = false   # true starts the VM on apply; false leaves it stopped
+
+# Narrow SSH to your IP if you can:
+# ssh_source_ranges = ["203.0.113.10/32"]

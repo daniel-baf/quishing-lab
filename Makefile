@@ -1,4 +1,26 @@
-.PHONY: up down logs health tunnel tunnel-logs tunnel-url practice-up practice-down logs-practice health-practice
+.PHONY: up down logs health tunnel tunnel-logs tunnel-url practice-up practice-down logs-practice health-practice infra-init infra-apply infra-up infra-down infra-destroy
+
+INFRA = cd infra &&
+
+# --- Infra (GCP/Terraform): VM + IP estática, queda apagada tras el apply ---
+infra-init:
+	$(INFRA) terraform init
+
+infra-apply:
+	$(INFRA) terraform apply
+
+# Enciende la VM para la práctica
+infra-up:
+	$(INFRA) terraform apply -var="vm_running=true"
+
+# Apaga la VM (conserva IP, disco y estado)
+infra-down:
+	$(INFRA) terraform apply -var="vm_running=false"
+
+# Borra TODO (libera la IP reservada, VM y disco)
+infra-destroy:
+	$(INFRA) terraform destroy
+
 
 PRACTICE_COMPOSE = docker compose -f docker-compose.practice.yml
 
